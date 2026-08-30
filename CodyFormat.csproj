@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>CodyFormat</AssemblyName>
+    <RootNamespace>CodyFormat</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\CodyFormat.ico</ApplicationIcon>
+    <Version>0.3.1</Version>
+    <AssemblyVersion>0.3.1.0</AssemblyVersion>
+    <FileVersion>0.3.1.0</FileVersion>
+    <Authors>LaneZeroO</Authors>
+    <Product>CodyFormat</Product>
+    <Description>Offline code formatting, syntax highlighting and Word/DOCX export.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Assets\CodyFormat.ico" />
+  </ItemGroup>
+</Project>

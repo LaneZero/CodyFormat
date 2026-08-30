@@ -1,0 +1,150 @@
+<Window x:Class="CodyFormat.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="CodyFormat" Height="850" Width="1360" MinHeight="700" MinWidth="1080"
+        Icon="Assets/CodyFormat.ico"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource WindowBgBrush}"
+        Foreground="{DynamicResource PrimaryTextBrush}"
+        FontFamily="Segoe UI Variable Text, Segoe UI"
+        UseLayoutRounding="True"
+        PreviewKeyDown="WindowPreviewKeyDown">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Grid Grid.Row="0" Margin="2,0,2,15">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Border Width="42" Height="42" CornerRadius="11" Background="{DynamicResource AccentBrush}" Margin="0,0,12,0">
+                    <TextBlock Text="{}{ }" Foreground="White" FontFamily="Cascadia Mono, Consolas" FontWeight="Bold" FontSize="15" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="CodyFormat" FontWeight="SemiBold" FontSize="25" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                        <Border Background="{DynamicResource BadgeBrush}" CornerRadius="9" Padding="7,3" Margin="9,3,0,0" VerticalAlignment="Top">
+                            <TextBlock Text="v0.3.1" Foreground="{DynamicResource BadgeTextBrush}" FontSize="10" FontWeight="SemiBold"/>
+                        </Border>
+                    </StackPanel>
+                    <TextBlock Text="Format, highlight and copy code locally. No upload. No account." FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,3,0,0"/>
+                </StackPanel>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Border Background="{DynamicResource OfflineBadgeBrush}" CornerRadius="13" Padding="10,5" Margin="0,0,8,0">
+                    <TextBlock Text="● 100% Offline" Foreground="{DynamicResource OfflineBadgeTextBrush}" FontSize="11" FontWeight="SemiBold"/>
+                </Border>
+                <Button Content="GitHub" Click="GitHubClick" Style="{StaticResource GhostButton}" ToolTip="Open the CodyFormat repository"/>
+                <Button Content="Donate" Click="DonateClick" Style="{StaticResource GhostButton}" ToolTip="Support continued free development"/>
+                <Button Content="Help" Click="HelpClick" Style="{StaticResource GhostButton}" ToolTip="How CodyFormat works"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Options -->
+        <Border Grid.Row="1" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="11" Padding="10" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <WrapPanel VerticalAlignment="Center">
+                    <TextBlock Text="Language" VerticalAlignment="Center" Margin="7,0,1,0" Foreground="{DynamicResource MutedTextBrush}" FontSize="11"/>
+                    <ComboBox x:Name="LanguageBox" SelectionChanged="OptionsSelectionChanged" MinWidth="145"/>
+
+                    <TextBlock Text="Theme" VerticalAlignment="Center" Margin="10,0,1,0" Foreground="{DynamicResource MutedTextBrush}" FontSize="11"/>
+                    <ComboBox x:Name="ThemeBox" SelectionChanged="ThemeSelectionChanged" MinWidth="90"/>
+
+                    <TextBlock Text="Background" VerticalAlignment="Center" Margin="10,0,1,0" Foreground="{DynamicResource MutedTextBrush}" FontSize="11"/>
+                    <ComboBox x:Name="BackgroundBox" SelectionChanged="OptionsSelectionChanged" MinWidth="145"/>
+                    <CheckBox x:Name="NoBackgroundBox" Content="None background" IsChecked="False" Checked="NoBackgroundChanged" Unchecked="NoBackgroundChanged" ToolTip="Remove background fill from Preview, Word clipboard and DOCX"/>
+
+                    <TextBlock Text="Indent" VerticalAlignment="Center" Margin="10,0,1,0" Foreground="{DynamicResource MutedTextBrush}" FontSize="11"/>
+                    <ComboBox x:Name="IndentBox" SelectionChanged="OptionsSelectionChanged" MinWidth="72"/>
+
+                    <CheckBox x:Name="LineNumbersBox" Content="Line numbers" IsChecked="True" Checked="OptionsChanged" Unchecked="OptionsChanged"/>
+                    <CheckBox x:Name="BorderBox" Content="Border" IsChecked="True" Checked="OptionsChanged" Unchecked="OptionsChanged"/>
+                    <CheckBox x:Name="FormatOnOutputBox" Content="Format before copy/export" IsChecked="False" Checked="OptionsChanged" Unchecked="OptionsChanged" ToolTip="Use a formatted copy for Preview/Word/DOCX without changing the editor text"/>
+                </WrapPanel>
+                <Button Grid.Column="1" Content="Format Code" Click="FormatCodeClick" Style="{StaticResource AccentButton}" Margin="8,0,0,0" ToolTip="Format code (Shift+Alt+F or Ctrl+Enter)"/>
+            </Grid>
+        </Border>
+
+        <!-- Editors -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="11" Padding="1">
+                <Grid>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <Grid Margin="14,10,14,9">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="INPUT" Foreground="{DynamicResource MutedTextBrush}" FontWeight="SemiBold" FontSize="10"/>
+                            <TextBlock Text="  •  Shift+Alt+F to format" Foreground="{DynamicResource MutedTextBrush}" FontSize="10"/>
+                        </StackPanel>
+                        <TextBlock x:Name="InputMetaText" HorizontalAlignment="Right" Foreground="{DynamicResource MutedTextBrush}" FontSize="10"/>
+                    </Grid>
+                    <Border Grid.Row="1" Background="{DynamicResource EditorBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1,1,1,0" CornerRadius="8,8,10,10">
+                        <TextBox x:Name="InputBox" TextChanged="InputChanged"
+                                 AcceptsReturn="True" AcceptsTab="True"
+                                 VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                                 TextWrapping="NoWrap" Background="Transparent" BorderThickness="0"
+                                 Foreground="{DynamicResource InputForegroundBrush}" CaretBrush="{DynamicResource CaretBrush}"
+                                 SelectionBrush="{DynamicResource SelectionBrush}"
+                                 FontFamily="Cascadia Mono, Cascadia Code, Consolas" FontSize="14"
+                                 Padding="15,13" SpellCheck.IsEnabled="False">
+                            <TextBox.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Format Code" InputGestureText="Shift+Alt+F" Click="FormatCodeClick"/>
+                                    <Separator/>
+                                    <MenuItem Header="Cut" Click="CutEditorClick"/>
+                                    <MenuItem Header="Copy" Click="CopyEditorClick"/>
+                                    <MenuItem Header="Paste" Click="PasteEditorClick"/>
+                                    <MenuItem Header="Select All" Click="SelectAllEditorClick"/>
+                                </ContextMenu>
+                            </TextBox.ContextMenu>
+                        </TextBox>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <Border x:Name="PreviewOuter" Grid.Column="2" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="11" Padding="1">
+                <Grid>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <Grid Margin="14,10,14,9">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="PREVIEW" Foreground="{DynamicResource MutedTextBrush}" FontWeight="SemiBold" FontSize="10"/>
+                            <Border Background="{DynamicResource PanelAltBrush}" CornerRadius="7" Padding="7,2" Margin="8,-2,0,0">
+                                <TextBlock x:Name="PreviewModeText" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="9"/>
+                            </Border>
+                        </StackPanel>
+                        <TextBlock x:Name="DetectedLanguageText" HorizontalAlignment="Right" Foreground="{DynamicResource MutedTextBrush}" FontSize="10"/>
+                    </Grid>
+                    <Border x:Name="CodePreviewBorder" Grid.Row="1" Margin="10,0,10,10" Padding="14" CornerRadius="8">
+                        <RichTextBox x:Name="PreviewBox" IsReadOnly="True" BorderThickness="0" Background="Transparent"
+                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                                     FontFamily="Cascadia Mono, Cascadia Code, Consolas" FontSize="14" Padding="0"
+                                     IsDocumentEnabled="False"/>
+                    </Border>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Footer -->
+        <Grid Grid.Row="3" Margin="2,12,2,0">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock x:Name="StatusText" Text="Ready" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11"/>
+                <TextBlock Margin="0,2,0,0" FontSize="10" Foreground="{DynamicResource MutedTextBrush}">
+                    <Run Text="Developed by "/><Run Text="LaneZeroO" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}"/><Run Text="  •  Local processing only  •  Shift+Alt+F: Format"/>
+                </TextBlock>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Content="Clear" Click="ClearClick"/>
+                <Button Content="Copy Plain" Click="CopyPlainClick"/>
+                <Button Content="Export DOCX" Click="ExportDocxClick" Style="{StaticResource AccentButton}"/>
+                <Button Content="Copy for Word" Click="CopyWordClick" Style="{StaticResource SuccessButton}"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>
