@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=CodyFormat
+Comment=Offline code formatter and syntax highlighter
+Exec=CodyFormat
+Icon=codyformat
+Terminal=false
+Type=Application
+Categories=Development;Utility;TextEditor;
+Keywords=code;formatter;syntax;sql;developer;
