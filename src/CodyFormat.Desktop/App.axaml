@@ -1,0 +1,89 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="CodyFormat.Desktop.App"
+             Name="CodyFormat"
+             RequestedThemeVariant="Dark">
+  <Application.Resources>
+    <SolidColorBrush x:Key="WindowBgBrush" Color="#0B1020"/>
+    <SolidColorBrush x:Key="PanelBrush" Color="#111827"/>
+    <SolidColorBrush x:Key="PanelAltBrush" Color="#172033"/>
+    <SolidColorBrush x:Key="EditorBrush" Color="#0D1424"/>
+    <SolidColorBrush x:Key="PrimaryTextBrush" Color="#F8FAFC"/>
+    <SolidColorBrush x:Key="SecondaryTextBrush" Color="#94A3B8"/>
+    <SolidColorBrush x:Key="MutedTextBrush" Color="#64748B"/>
+    <SolidColorBrush x:Key="ControlBrush" Color="#1F2937"/>
+    <SolidColorBrush x:Key="ControlHoverBrush" Color="#2B384D"/>
+    <SolidColorBrush x:Key="StrokeBrush" Color="#263244"/>
+    <SolidColorBrush x:Key="AccentBrush" Color="#2563EB"/>
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="#3B82F6"/>
+    <SolidColorBrush x:Key="SuccessBrush" Color="#0F766E"/>
+    <SolidColorBrush x:Key="InputForegroundBrush" Color="#E5E7EB"/>
+    <SolidColorBrush x:Key="SelectionBrush" Color="#264F78"/>
+    <SolidColorBrush x:Key="BadgeBrush" Color="#172554"/>
+    <SolidColorBrush x:Key="BadgeTextBrush" Color="#93C5FD"/>
+    <SolidColorBrush x:Key="OfflineBadgeBrush" Color="#052E2B"/>
+    <SolidColorBrush x:Key="OfflineBadgeTextBrush" Color="#5EEAD4"/>
+    <SolidColorBrush x:Key="TelegramBrush" Color="#229ED9"/>
+    <SolidColorBrush x:Key="TelegramHoverBrush" Color="#168AC0"/>
+  </Application.Resources>
+
+  <Application.Styles>
+    <FluentTheme />
+
+    <Style Selector="Window">
+      <Setter Property="Background" Value="{DynamicResource WindowBgBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+    </Style>
+    <Style Selector="Button">
+      <Setter Property="Background" Value="{DynamicResource ControlBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource StrokeBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="7"/>
+      <Setter Property="Padding" Value="12,7"/>
+      <Setter Property="Margin" Value="4,2"/>
+    </Style>
+    <Style Selector="Button:pointerover">
+      <Setter Property="Background" Value="{DynamicResource ControlHoverBrush}"/>
+    </Style>
+    <Style Selector="Button.accent">
+      <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+    <Style Selector="Button.accent:pointerover">
+      <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
+    </Style>
+    <Style Selector="Button.telegram">
+      <Setter Property="Background" Value="{DynamicResource TelegramBrush}"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource TelegramBrush}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style Selector="Button.telegram:pointerover">
+      <Setter Property="Background" Value="{DynamicResource TelegramHoverBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource TelegramHoverBrush}"/>
+    </Style>
+    <Style Selector="ComboBox">
+      <Setter Property="Background" Value="{DynamicResource ControlBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource StrokeBrush}"/>
+      <Setter Property="MinHeight" Value="34"/>
+      <Setter Property="Margin" Value="4,2"/>
+    </Style>
+    <Style Selector="ComboBoxItem">
+      <Setter Property="Background" Value="{DynamicResource PanelBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="Background" Value="{DynamicResource EditorBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource InputForegroundBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource StrokeBrush}"/>
+      <Setter Property="SelectionBrush" Value="{DynamicResource SelectionBrush}"/>
+    </Style>
+    <Style Selector="CheckBox">
+      <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
+      <Setter Property="Margin" Value="8,4"/>
+    </Style>
+  </Application.Styles>
+</Application>

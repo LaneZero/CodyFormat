@@ -1,43 +1,135 @@
-# Build results
-bin/
-obj/
-dist/
+# ============================================================
+# CodyFormat - repository ignore rules
+# .NET 10 / Avalonia / Windows / Linux / macOS
+# ============================================================
 
-# Visual Studio
+# ----------------------------
+# .NET build output
+# ----------------------------
+**/bin/
+**/obj/
+artifacts/
+publish/
+dist/
+release/
+TestResults/
+BenchmarkDotNet.Artifacts/
+
+# NuGet / package build output
+packages/
+.nuget/packages/
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+artifacts.json
+
+# Compiler / diagnostics / coverage
+*.pdb
+*.binlog
+*.trx
+*.coverage
+*.coveragexml
+coverage/
+coverage.*
+
+# ----------------------------
+# IDE / editor files
+# ----------------------------
 .vs/
-*.user
+.idea/
+_ReSharper*/
+*.DotSettings.user
 *.suo
+*.user
 *.userosscache
 *.sln.docstates
 
-# JetBrains Rider
-.idea/
-*.sln.iml
+# VS Code: ignore local state but allow intentional shared config later
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
 
-# VS Code
-.vscode/
+# ----------------------------
+# OS-generated files
+# ----------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
 
-# Debug files
-*.pdb
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+Desktop.ini
+$RECYCLE.BIN/
 
-# Temporary files
+# Linux / desktop environment
+.directory
+.Trash-*/
+
+# ----------------------------
+# Temporary / backup files
+# ----------------------------
 *.tmp
 *.temp
 *.bak
+*.old
+*.orig
+*.rej
+*~
+*.swp
+*.swo
 
 # Logs
 *.log
+logs/
 
-# OS files
-Thumbs.db
-Desktop.ini
-.DS_Store
+# ----------------------------
+# Secrets / signing credentials
+# NEVER commit signing keys, certificates or local secrets.
+# ----------------------------
+.env
+.env.*
+!.env.example
+*.p12
+*.pfx
+*.key
+*.pem
+*.cer
+*.crt
+*.mobileprovision
+*.provisionprofile
+notary-credentials*
 
-# NuGet
-packages/
-*.nupkg
+# ----------------------------
+# Generated application/release packages
+# Release binaries belong in GitHub Releases, not Git history.
+# ----------------------------
+*.app/
+*.dmg
+*.pkg
+*.msix
+*.msixbundle
+*.appx
+*.appxbundle
+*.deb
+*.rpm
+*.AppImage
 
-# Publish directories
-publish/
-Release/
-Debug/
+CodyFormat-v*-win-*.zip
+CodyFormat-v*-macos-*.zip
+CodyFormat-v*-linux-*.tar.gz
+CodyFormat-notarize*.zip
+SHA256SUMS.txt
+
+# ----------------------------
+# Local CodyFormat development scratch
+# ----------------------------
+.local/
+.tmp/
+temp/
+scratch/
