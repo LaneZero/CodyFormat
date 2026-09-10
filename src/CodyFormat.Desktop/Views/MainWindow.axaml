@@ -4,7 +4,7 @@
         Title="CodyFormat"
         Width="1440" Height="900" MinWidth="1080" MinHeight="700"
         WindowStartupLocation="CenterScreen"
-        Icon="/Assets/CodyFormat.png"
+        Icon="avares://CodyFormat/Assets/CodyFormat.png"
         KeyDown="WindowKeyDown"
         DragDrop.AllowDrop="True"
         DragDrop.DragOver="WindowDragOver"
@@ -14,15 +14,15 @@
     <!-- Header -->
     <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
       <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-        <Border Width="48" Height="48" CornerRadius="12" Background="{DynamicResource PanelAltBrush}"
+        <Border Width="54" Height="54" CornerRadius="13" Background="{DynamicResource PanelAltBrush}"
                 BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" Margin="0,0,12,0">
-          <Image Source="/Assets/CodyFormat.png" Width="38" Height="38" Stretch="Uniform"/>
+          <Image Source="avares://CodyFormat/Assets/CodyFormat.png" Width="50" Height="50" Stretch="Uniform"/>
         </Border>
         <StackPanel>
           <StackPanel Orientation="Horizontal">
             <TextBlock Text="CodyFormat" FontSize="25" FontWeight="SemiBold"/>
             <Border Background="{DynamicResource BadgeBrush}" CornerRadius="9" Padding="7,3" Margin="9,3,0,0">
-              <TextBlock Text="v0.6.0-preview.3" Foreground="{DynamicResource BadgeTextBrush}" FontSize="10" FontWeight="SemiBold"/>
+              <TextBlock Text="v0.6.0" Foreground="{DynamicResource BadgeTextBrush}" FontSize="10" FontWeight="SemiBold"/>
             </Border>
           </StackPanel>
           <TextBlock Text="Offline code formatting across Windows, macOS and Linux."
@@ -140,7 +140,7 @@
       <TextBlock x:Name="StatusText" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11"/>
       <StackPanel Grid.Column="1" Orientation="Horizontal">
         <Button Content="Copy Plain" Click="CopyPlainClick"/>
-        <Button Content="Copy Telegram" Click="CopyTelegramClick"/>
+        <Button Content="Copy Telegram" Click="CopyTelegramClick" Classes="telegram"/>
         <Button Content="Copy for Word" Click="CopyWordClick" Classes="accent"/>
         <Button Content="Export DOCX" Click="ExportDocxClick"/>
         <Button Content="Clear" Click="ClearClick"/>

@@ -33,13 +33,15 @@ public static class CodeFormatterService
                 "JSON" => FormatJson(original, indentSize),
                 "XML" => FormatXml(original, indentSize),
                 "HTML" => FormatHtml(original, indentSize),
+                "CSS" => FormatCss(original, indentSize),
                 "SQL" => FormatSql(original, indentSize),
                 "Python" => FormatPython(original, indentSize),
-                "Bash" => FormatKeywordBlocks(original, indentSize, ShellOpen, ShellClose, ShellMiddle),
-                "Ruby" => FormatKeywordBlocks(original, indentSize, RubyOpen, RubyClose, RubyMiddle),
-                "Lua" => FormatKeywordBlocks(original, indentSize, LuaOpen, LuaClose, LuaMiddle),
+                "Bash" => FormatBash(original, indentSize),
+                "Ruby" => FormatRuby(original, indentSize),
+                "Lua" => FormatLua(original, indentSize),
                 "YAML" => FormatYaml(original, indentSize),
-                "Markdown" => FormatWhitespaceOnly(original),
+                "Markdown" => PreserveWhitespaceSensitive(original),
+                "Plain Text" => PreserveWhitespaceSensitive(original),
                 _ when LanguageCatalog.IsBraceLanguage(language) => FormatBraceLanguage(original, indentSize, language),
                 _ => FormatWhitespaceOnly(original)
             };
@@ -88,9 +90,25 @@ public static class CodeFormatterService
         {
             if (rawTag.Length > 0)
             {
-                AppendLine(sb, indent, token, indentSize);
                 if (token.StartsWith($"</{rawTag}", StringComparison.OrdinalIgnoreCase))
+                {
+                    indent = Math.Max(0, indent - 1);
+                    AppendLine(sb, indent, token, indentSize);
                     rawTag = string.Empty;
+                    continue;
+                }
+
+                // Script/style bodies benefit from the same formatter engines used when those
+                // languages are edited directly. Pre/textarea content is intentionally preserved.
+                var rawBody = rawTag switch
+                {
+                    "script" => FormatBraceLanguage(token, indentSize, "JavaScript"),
+                    "style" => FormatCss(token, indentSize),
+                    _ => PreserveWhitespaceSensitive(token)
+                };
+
+                foreach (var rawLine in NormalizeNewLines(rawBody).Split('\n'))
+                    AppendLine(sb, indent, rawLine, indentSize);
                 continue;
             }
 
@@ -116,6 +134,77 @@ public static class CodeFormatterService
         }
 
         return sb.ToString().TrimEnd();
+    }
+
+    private static string FormatCss(string code, int indentSize)
+    {
+        var structural = FormatBraceLanguage(code, indentSize, "CSS");
+        var lines = NormalizeNewLines(structural).Split('\n');
+        var output = new List<string>(lines.Length);
+        var blockDepth = 0;
+
+        foreach (var raw in lines)
+        {
+            var line = raw.TrimEnd();
+            var trimmed = line.TrimStart();
+
+            if (blockDepth > 0 && trimmed.Length > 0 && !trimmed.StartsWith("/*", StringComparison.Ordinal))
+            {
+                var colon = FindCssDeclarationColon(trimmed);
+                if (colon > 0)
+                {
+                    var leading = line[..(line.Length - trimmed.Length)];
+                    var property = trimmed[..colon].TrimEnd();
+                    var value = trimmed[(colon + 1)..].TrimStart();
+                    line = leading + property + ": " + value;
+                }
+            }
+
+            output.Add(line);
+            blockDepth += CountOutsideStringsAndComments(line, '{', '}');
+            blockDepth = Math.Max(0, blockDepth);
+        }
+
+        return string.Join("\n", output);
+    }
+
+    private static int FindCssDeclarationColon(string line)
+    {
+        var single = false;
+        var dbl = false;
+        var paren = 0;
+        for (var i = 0; i < line.Length; i++)
+        {
+            var ch = line[i];
+            if (ch == '\'' && !dbl) single = !single;
+            else if (ch == '"' && !single) dbl = !dbl;
+            if (single || dbl) continue;
+            if (ch == '(') paren++;
+            else if (ch == ')') paren = Math.Max(0, paren - 1);
+            else if (ch == ':' && paren == 0)
+            {
+                var before = line[..i].Trim();
+                return Regex.IsMatch(before, "^--?[A-Za-z_][A-Za-z0-9_-]*$|^[A-Za-z_][A-Za-z0-9_-]*$") ? i : -1;
+            }
+        }
+        return -1;
+    }
+
+    private static int CountOutsideStringsAndComments(string line, char open, char close)
+    {
+        var delta = 0;
+        var single = false;
+        var dbl = false;
+        for (var i = 0; i < line.Length; i++)
+        {
+            var ch = line[i];
+            if (!single && !dbl && i + 1 < line.Length && ch == '/' && line[i + 1] == '*') break;
+            if (ch == '\'' && !dbl) single = !single;
+            else if (ch == '"' && !single) dbl = !dbl;
+            else if (!single && !dbl && ch == open) delta++;
+            else if (!single && !dbl && ch == close) delta--;
+        }
+        return delta;
     }
 
     private static string FormatSql(string code, int indentSize)
@@ -453,11 +542,18 @@ public static class CodeFormatterService
 
     private static string FormatBraceLanguage(string code, int indentSize, string language)
     {
-        // PHP heredoc/nowdoc and C# raw strings need a full lexer. Preserve source rather than corrupt them.
+        // Multiline/raw literal syntaxes need a dedicated parser. Preserve their existing structure
+        // instead of risking a semantic change while still cleaning trailing whitespace.
         if ((language == "PHP" && code.Contains("<<<", StringComparison.Ordinal)) ||
-            (language == "C#" && code.Contains("\"\"\"", StringComparison.Ordinal)) ||
+            (language == "Perl" && (code.Contains("<<", StringComparison.Ordinal) || Regex.IsMatch(code, @"=~\s*/|\b(?:qr|m|s)/"))) ||
+            (language == "PowerShell" && (code.Contains("@\"", StringComparison.Ordinal) || code.Contains("@'", StringComparison.Ordinal))) ||
+            ((language is "C#" or "Java" or "Kotlin" or "Swift" or "Dart" or "Scala" or "Groovy") &&
+             (code.Contains("\"\"\"", StringComparison.Ordinal) || code.Contains("'''", StringComparison.Ordinal))) ||
+            ((language is "JavaScript" or "TypeScript" or "Go") && code.Contains('`')) ||
+            (language == "Groovy" && (code.Contains("$/", StringComparison.Ordinal) || code.Contains("/$", StringComparison.Ordinal))) ||
+            ((language is "C" or "C++") && code.Contains("R\"(", StringComparison.Ordinal)) ||
             (language == "Rust" && Regex.IsMatch(code, "\\br#+\\\"")))
-            return FormatWhitespaceOnly(code);
+            return PreserveWhitespaceSensitive(code);
 
         var sb = new StringBuilder(code.Length + 96);
         var indent = 0;
@@ -557,11 +653,18 @@ public static class CodeFormatterService
                 continue;
             }
 
-            if (language == "PHP" && ch == '#')
+            if (ch == '#' && (language is "PHP" or "PowerShell" or "R" or "Perl"))
             {
                 EnsureIndent();
                 sb.Append(ch);
                 state = LexState.LineComment;
+                continue;
+            }
+
+            if (language == "Rust" && ch == '\'' && IsRustLifetime(code, i))
+            {
+                EnsureIndent();
+                sb.Append(ch);
                 continue;
             }
 
@@ -572,6 +675,18 @@ public static class CodeFormatterService
                 quote = ch;
                 verbatimString = language == "C#" && ch == '"' && i > 0 && code[i - 1] == '@';
                 state = LexState.String;
+                continue;
+            }
+
+            if (TryReadSpacingOperator(code, i, out var spacingOperator))
+            {
+                EnsureIndent();
+                TrimTrailingSpaces(sb);
+                if (sb.Length > 0 && sb[^1] is not (' ' or '\n' or '\t' or '(' or '[')) sb.Append(' ');
+                sb.Append(spacingOperator);
+                if (i + spacingOperator.Length < code.Length && code[i + spacingOperator.Length] is not (' ' or '\r' or '\n' or ')' or ']' or ';' or ','))
+                    sb.Append(' ');
+                i += spacingOperator.Length - 1;
                 continue;
             }
 
@@ -607,7 +722,14 @@ public static class CodeFormatterService
                 indent = Math.Max(0, indent - 1);
                 EnsureIndent();
                 sb.Append('}');
-                if (next is not ';' and not ',' and not ')' and not ']' && !StartsContinuationWord(code, i + 1)) NewLine();
+                if (StartsContinuationWord(code, i + 1))
+                {
+                    sb.Append(' ');
+                }
+                else if (next is not ';' and not ',' and not ')' and not ']')
+                {
+                    NewLine();
+                }
                 continue;
             }
 
@@ -624,7 +746,7 @@ public static class CodeFormatterService
                 EnsureIndent();
                 TrimTrailingSpaces(sb);
                 sb.Append(',');
-                if (parenDepth > 0) sb.Append(' ');
+                if (next is not '\r' and not '\n' and not '}' and not ']') sb.Append(' ');
                 continue;
             }
 
@@ -650,8 +772,33 @@ public static class CodeFormatterService
 
     private static string FormatPython(string code, int indentSize)
     {
-        // Python indentation is syntax. Preserve block depth and normalize the existing indentation unit only.
+        // Python indentation is syntax. Normalize the established indentation unit, but do not
+        // touch triple-quoted source where leading/trailing whitespace can be literal data.
+        if (code.Contains("\"\"\"", StringComparison.Ordinal) || code.Contains("'''", StringComparison.Ordinal))
+            return PreserveWhitespaceSensitive(code);
         return NormalizeIndentationSensitive(code, indentSize);
+    }
+
+    private static string FormatBash(string code, int indentSize)
+    {
+        // Here-doc bodies are whitespace-sensitive and can contain arbitrary braces/keywords.
+        if (Regex.IsMatch(code, "<<-?\\s*['\\\"]?[A-Za-z_][A-Za-z0-9_]*"))
+            return PreserveWhitespaceSensitive(code);
+        return FormatKeywordBlocks(code, indentSize, ShellOpen, ShellClose, ShellMiddle);
+    }
+
+    private static string FormatRuby(string code, int indentSize)
+    {
+        if (Regex.IsMatch(code, @"<<[-~]?[A-Za-z_][A-Za-z0-9_]*"))
+            return PreserveWhitespaceSensitive(code);
+        return FormatKeywordBlocks(code, indentSize, RubyOpen, RubyClose, RubyMiddle);
+    }
+
+    private static string FormatLua(string code, int indentSize)
+    {
+        if (code.Contains("[[", StringComparison.Ordinal) || Regex.IsMatch(code, @"\[=+\["))
+            return PreserveWhitespaceSensitive(code);
+        return FormatKeywordBlocks(code, indentSize, LuaOpen, LuaClose, LuaMiddle);
     }
 
     private static string FormatKeywordBlocks(
@@ -684,8 +831,31 @@ public static class CodeFormatterService
 
     private static string FormatYaml(string code, int indentSize)
     {
-        // YAML indentation is data structure. Never infer hierarchy from keys; normalize existing levels only.
-        return NormalizeIndentationSensitive(code, indentSize);
+        // YAML indentation is data structure. Never infer hierarchy from keys. Block scalars are
+        // especially whitespace-sensitive, so only normalize their existing indentation levels.
+        var normalized = NormalizeIndentationSensitive(code, indentSize);
+        if (Regex.IsMatch(normalized, @"(?m):\s*[|>]([+-]?\d*)?\s*(?:#.*)?$"))
+            return normalized;
+
+        var lines = normalized.Split('\n');
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i];
+            var trimmed = line.TrimStart();
+            if (trimmed.Length == 0 || trimmed.StartsWith('#')) continue;
+
+            var leading = line[..(line.Length - trimmed.Length)];
+            if (trimmed.StartsWith("-", StringComparison.Ordinal) && trimmed.Length > 1 && !char.IsWhiteSpace(trimmed[1]))
+                trimmed = "- " + trimmed[1..];
+
+            var colon = FindYamlColon(trimmed);
+            if (colon > 0 && colon + 1 < trimmed.Length && !char.IsWhiteSpace(trimmed[colon + 1]))
+                trimmed = trimmed[..(colon + 1)] + " " + trimmed[(colon + 1)..];
+
+            lines[i] = leading + trimmed.TrimEnd();
+        }
+
+        return string.Join("\n", lines);
     }
 
     private static string NormalizeIndentationSensitive(string code, int indentSize)
@@ -699,8 +869,7 @@ public static class CodeFormatterService
             if (width > 0) positiveIndents.Add(width);
         }
 
-        var sourceUnit = positiveIndents.Count == 0 ? indentSize : positiveIndents.Min();
-        sourceUnit = Math.Max(1, sourceUnit);
+        var sourceUnit = DetectIndentUnit(positiveIndents, indentSize);
         var output = new List<string>(lines.Length);
 
         foreach (var raw in lines)
@@ -713,11 +882,33 @@ public static class CodeFormatterService
 
             var width = LeadingIndentWidth(raw);
             var levels = width / sourceUnit;
+            var remainder = width % sourceUnit;
             var content = raw.TrimStart(' ', '\t').TrimEnd();
-            output.Add(new string(' ', levels * indentSize) + content);
+            var normalizedWidth = levels * indentSize + Math.Min(remainder, Math.Max(0, indentSize - 1));
+            output.Add(new string(' ', normalizedWidth) + content);
         }
 
         return RemoveExcessBlankLines(string.Join("\n", output));
+    }
+
+    private static int DetectIndentUnit(IReadOnlyList<int> widths, int fallback)
+    {
+        if (widths.Count == 0) return Math.Max(1, fallback);
+
+        var candidates = new[] { 4, 2, 8, 3 };
+        var best = Math.Max(1, widths.Min());
+        var bestScore = -1;
+        foreach (var candidate in candidates)
+        {
+            var score = widths.Count(width => width >= candidate && width % candidate == 0);
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = candidate;
+            }
+        }
+
+        return Math.Max(1, best);
     }
 
     private static int LeadingIndentWidth(string line)
@@ -833,6 +1024,36 @@ public static class CodeFormatterService
         "INSERT" or "UPDATE" or "DELETE" or "MERGE" or "VALUES" or "SET" or "RETURNING" or "OUTPUT" or
         "LIMIT" or "OFFSET" or "FETCH" or "WITH";
 
+    private static bool IsRustLifetime(string code, int quoteIndex)
+    {
+        var index = quoteIndex + 1;
+        if (index >= code.Length || !(char.IsLetter(code[index]) || code[index] == '_')) return false;
+        index++;
+        while (index < code.Length && (char.IsLetterOrDigit(code[index]) || code[index] == '_')) index++;
+        // 'a' is a character literal; 'a, 'static and similar forms are lifetimes.
+        return index >= code.Length || code[index] != '\'';
+    }
+
+    private static bool TryReadSpacingOperator(string code, int index, out string value)
+    {
+        // Only operators whose whitespace is unambiguous across the supported brace languages
+        // are normalized here. Operators such as <, >, *, &, + and - are intentionally left
+        // alone because they can also be generic, pointer/reference or unary syntax.
+        string[] candidates = ["===", "!==", "??=", "<<=", ">>=", "==", "!=", "<=", ">=", "=>", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "&&", "||", ":=", "="];
+        foreach (var candidate in candidates)
+        {
+            if (index + candidate.Length <= code.Length &&
+                code.AsSpan(index, candidate.Length).SequenceEqual(candidate.AsSpan()))
+            {
+                value = candidate;
+                return true;
+            }
+        }
+
+        value = string.Empty;
+        return false;
+    }
+
     private static bool StartsContinuationWord(string code, int index)
     {
         while (index < code.Length && char.IsWhiteSpace(code[index])) index++;
@@ -889,7 +1110,7 @@ public static class CodeFormatterService
     private static bool RubyOpen(string line) => Regex.IsMatch(line, "^(class|module|def|if|unless|case|begin|while|until|for)\\b|\\bdo\\s*(\\|.*\\|)?$", RegexOptions.IgnoreCase);
     private static bool RubyClose(string line) => Regex.IsMatch(line, "^end\\b", RegexOptions.IgnoreCase);
     private static bool RubyMiddle(string line) => Regex.IsMatch(line, "^(else|elsif|when|rescue|ensure)\\b", RegexOptions.IgnoreCase);
-    private static bool LuaOpen(string line) => Regex.IsMatch(line, "^(function\\b|if\\b.*then$|for\\b.*do$|while\\b.*do$|repeat$|do$)", RegexOptions.IgnoreCase);
+    private static bool LuaOpen(string line) => Regex.IsMatch(line, "^((local\\s+)?function\\b|if\\b.*then$|for\\b.*do$|while\\b.*do$|repeat$|do$)", RegexOptions.IgnoreCase);
     private static bool LuaClose(string line) => Regex.IsMatch(line, "^(end|until\\b)", RegexOptions.IgnoreCase);
     private static bool LuaMiddle(string line) => Regex.IsMatch(line, "^(else|elseif\\b)", RegexOptions.IgnoreCase);
 
@@ -940,6 +1161,9 @@ public static class CodeFormatterService
             return new string(' ', levels * targetSize) + line[count..];
         }));
     }
+
+    private static string PreserveWhitespaceSensitive(string code)
+        => NormalizeNewLines(code);
 
     private static string FormatWhitespaceOnly(string code)
     {

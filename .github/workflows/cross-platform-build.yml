@@ -43,6 +43,17 @@ jobs:
       - name: Publish ${{ matrix.rid }}
         shell: bash
         run: dotnet publish src/CodyFormat.Desktop/CodyFormat.Desktop.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:UseAppHost=true -o artifacts/${{ matrix.rid }}
+      - name: Add Linux desktop integration
+        if: startsWith(matrix.rid, 'linux-')
+        shell: bash
+        run: |
+          cp packaging/linux/install-user.sh artifacts/${{ matrix.rid }}/install-user.sh
+          cp packaging/linux/uninstall-user.sh artifacts/${{ matrix.rid }}/uninstall-user.sh
+          chmod +x artifacts/${{ matrix.rid }}/CodyFormat artifacts/${{ matrix.rid }}/install-user.sh artifacts/${{ matrix.rid }}/uninstall-user.sh
+          mkdir -p artifacts/${{ matrix.rid }}/desktop-integration
+          cp packaging/linux/codyformat.desktop artifacts/${{ matrix.rid }}/desktop-integration/codyformat.desktop
+          cp -a packaging/linux/icons artifacts/${{ matrix.rid }}/desktop-integration/
+          cp -a packaging/linux/pixmaps artifacts/${{ matrix.rid }}/desktop-integration/
       - uses: actions/upload-artifact@v4
         with:
           name: CodyFormat-${{ matrix.rid }}

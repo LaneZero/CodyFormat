@@ -1,12 +1,135 @@
-bin/
-obj/
+# ============================================================
+# CodyFormat - repository ignore rules
+# .NET 10 / Avalonia / Windows / Linux / macOS
+# ============================================================
+
+# ----------------------------
+# .NET build output
+# ----------------------------
+**/bin/
+**/obj/
 artifacts/
+publish/
+dist/
+release/
+TestResults/
+BenchmarkDotNet.Artifacts/
+
+# NuGet / package build output
+packages/
+.nuget/packages/
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+artifacts.json
+
+# Compiler / diagnostics / coverage
+*.pdb
+*.binlog
+*.trx
+*.coverage
+*.coveragexml
+coverage/
+coverage.*
+
+# ----------------------------
+# IDE / editor files
+# ----------------------------
 .vs/
 .idea/
-.vscode/
-*.user
+_ReSharper*/
+*.DotSettings.user
 *.suo
-*.pdb
-*.log
+*.user
+*.userosscache
+*.sln.docstates
+
+# VS Code: ignore local state but allow intentional shared config later
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+
+# ----------------------------
+# OS-generated files
+# ----------------------------
+# macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
 Thumbs.db
+Thumbs.db:encryptable
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux / desktop environment
+.directory
+.Trash-*/
+
+# ----------------------------
+# Temporary / backup files
+# ----------------------------
+*.tmp
+*.temp
+*.bak
+*.old
+*.orig
+*.rej
+*~
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# ----------------------------
+# Secrets / signing credentials
+# NEVER commit signing keys, certificates or local secrets.
+# ----------------------------
+.env
+.env.*
+!.env.example
+*.p12
+*.pfx
+*.key
+*.pem
+*.cer
+*.crt
+*.mobileprovision
+*.provisionprofile
+notary-credentials*
+
+# ----------------------------
+# Generated application/release packages
+# Release binaries belong in GitHub Releases, not Git history.
+# ----------------------------
+*.app/
+*.dmg
+*.pkg
+*.msix
+*.msixbundle
+*.appx
+*.appxbundle
+*.deb
+*.rpm
+*.AppImage
+
+CodyFormat-v*-win-*.zip
+CodyFormat-v*-macos-*.zip
+CodyFormat-v*-linux-*.tar.gz
+CodyFormat-notarize*.zip
+SHA256SUMS.txt
+
+# ----------------------------
+# Local CodyFormat development scratch
+# ----------------------------
+.local/
+.tmp/
+temp/
+scratch/

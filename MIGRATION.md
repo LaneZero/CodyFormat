@@ -1,51 +1,70 @@
-# CodyFormat Cross-Platform Migration
+# CodyFormat Cross-Platform Migration Status
+
+## Status: Completed for v0.6.0 Stable
+
+The migration from the Windows-only WPF baseline to the shared Avalonia desktop codebase reached its first stable milestone in **CodyFormat v0.6.0**.
 
 ## Stable baseline
 
-**Do not modify or replace the Windows stable release:** `CodyFormat v0.5.0` (WPF).
+The cross-platform implementation is now the primary development base.
 
-The cross-platform line begins at `v0.6.0-preview.1` and uses Avalonia.
+Validated environments:
 
-## Migration goals
+- Windows x64 — functional validation passed
+- Ubuntu Linux x64 — functional validation passed
+- macOS Apple Silicon ARM64 — functional validation passed on a real Apple M1 Mac
 
-1. One shared formatting/export engine.
-2. One desktop UI codebase for Windows, macOS and Linux.
-3. Preserve the offline/privacy model.
-4. Preserve Word, DOCX and Telegram workflows.
-5. Preserve Windows behavior before retiring WPF.
-6. Use native platform file pickers, drag/drop and clipboard APIs.
+Compatibility build targets also exist for:
 
-## Completed in preview.1
+- Windows ARM64
+- Linux ARM64
+- macOS Intel x64
 
-- Split OS-independent code into `CodyFormat.Core`.
-- Removed WPF/System.Windows dependencies from Core.
-- Ported the primary desktop layout to Avalonia.
-- Added platform-aware clipboard bridge.
-- Added cross-platform storage provider for open/save.
-- Added stream-based source-file import and DOCX export.
-- Added Windows/macOS/Linux runtime IDs.
-- Added macOS `.app` bundle template and `.icns` icon.
-- Added Linux desktop-entry template.
-- Added GitHub Actions cross-platform build gate.
-- Added dependency-free smoke-test executable.
+These remain architecture-specific validation targets until equivalent hardware testing is completed.
 
-## Still required before v0.6.0 stable
-
-- Compile gate on all three OS families.
-- Pixel/UX pass on Windows and macOS.
-- Word rich-paste compatibility test on Windows.
-- Word rich-paste compatibility test on macOS.
-- Apple code signing and notarization workflow.
-- macOS Intel runtime test if Intel distribution remains supported.
-- Linux GNOME/KDE clipboard test.
-- Large-file responsiveness test.
-- Accessibility/keyboard navigation pass.
-
-## Branch recommendation
+## Architecture
 
 ```text
-main                         -> Windows stable / release history
-cross-platform/avalonia      -> v0.6.x migration
+CodyFormat.sln
+src/
+  CodyFormat.Core
+  CodyFormat.Desktop
+  CodyFormat.SmokeTests
 ```
 
-Do not delete the WPF source/history until the cross-platform build has been stable through at least one public release cycle.
+`CodyFormat.Core` contains OS-independent formatting, highlighting, export, profile, and related logic.
+
+`CodyFormat.Desktop` provides the Avalonia UI and platform integrations.
+
+## What was resolved during the migration
+
+The preview cycle hardened several platform-specific areas:
+
+- Avalonia XAML compatibility
+- generated `InitializeComponent` wiring
+- Windows native rich clipboard behavior
+- Linux X11/XWayland rich clipboard behavior
+- cross-platform icons
+- Linux desktop integration
+- macOS `.app` packaging
+- formatter safety protections
+- release packaging and checksum scripts
+
+## Legacy WPF baseline
+
+`v0.5.0` remains preserved as a historical Windows rollback point.
+
+It should not receive normal feature development now that `v0.6.0` is the accepted cross-platform Stable baseline.
+
+## Development after migration
+
+New work starts from the cross-platform codebase and follows the versioned roadmap:
+
+```text
+v0.7.0  Developer workflow
+v0.8.0  Export and presentation
+v0.9.0  Desktop productivity and scale
+v1.0.0  Long-term stable toolchain
+```
+
+See [`ROADMAP.md`](ROADMAP.md).

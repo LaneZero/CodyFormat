@@ -493,12 +493,17 @@ public partial class MainWindow : Window
             var language = ResolveLanguage();
             var theme = ThemeService.Get(ThemeBox.SelectedItem?.ToString() ?? "Dark");
             var code = GetOutputCode(language, out var warning);
+            var background = ResolveBackground(theme);
             var fragment = RichCodeExportService.BuildHtmlFragment(
-                code, language, theme, ResolveBackground(theme),
+                code, language, theme, background,
                 LineNumbersBox.IsChecked == true, BorderBox.IsChecked == true,
                 IndentSize, CurrentFontFamily, CurrentFontSize, _highlighter);
-            await PlatformClipboardService.CopyRichAsync(clipboard, code, fragment);
-            SetStatus(warning ?? $"✓ Copied rich code for Word  •  {language}  •  {PlatformInfo.Name}");
+            var rtf = RichCodeExportService.BuildRtf(
+                code, language, theme, background,
+                LineNumbersBox.IsChecked == true, BorderBox.IsChecked == true,
+                IndentSize, CurrentFontFamily, CurrentFontSize, _highlighter);
+            var clipboardBackend = await PlatformClipboardService.CopyRichAsync(clipboard, code, fragment, rtf);
+            SetStatus(warning ?? $"✓ Copied rich code for Word  •  {language}  •  {clipboardBackend}");
         }
         catch (Exception ex)
         {

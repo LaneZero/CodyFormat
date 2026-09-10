@@ -23,6 +23,8 @@
     <SolidColorBrush x:Key="BadgeTextBrush" Color="#93C5FD"/>
     <SolidColorBrush x:Key="OfflineBadgeBrush" Color="#052E2B"/>
     <SolidColorBrush x:Key="OfflineBadgeTextBrush" Color="#5EEAD4"/>
+    <SolidColorBrush x:Key="TelegramBrush" Color="#229ED9"/>
+    <SolidColorBrush x:Key="TelegramHoverBrush" Color="#168AC0"/>
   </Application.Resources>
 
   <Application.Styles>
@@ -51,6 +53,16 @@
     </Style>
     <Style Selector="Button.accent:pointerover">
       <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
+    </Style>
+    <Style Selector="Button.telegram">
+      <Setter Property="Background" Value="{DynamicResource TelegramBrush}"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource TelegramBrush}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style Selector="Button.telegram:pointerover">
+      <Setter Property="Background" Value="{DynamicResource TelegramHoverBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource TelegramHoverBrush}"/>
     </Style>
     <Style Selector="ComboBox">
       <Setter Property="Background" Value="{DynamicResource ControlBrush}"/>
