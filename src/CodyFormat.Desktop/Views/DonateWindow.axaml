@@ -1,0 +1,33 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="CodyFormat.Desktop.Views.DonateWindow"
+        Title="Support CodyFormat" Width="720" Height="670" MinWidth="620" MinHeight="520"
+        WindowStartupLocation="CenterOwner" Icon="avares://CodyFormat/Assets/CodyFormat.png">
+  <Grid RowDefinitions="Auto,*,Auto" Margin="22">
+    <StackPanel Grid.Row="0" Margin="0,0,0,14">
+      <TextBlock Text="Support CodyFormat" FontSize="24" FontWeight="SemiBold"/>
+      <TextBlock Text="If CodyFormat is useful to you, an optional donation helps free tools remain maintained and available." TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,5,0,0"/>
+    </StackPanel>
+    <ScrollViewer Grid.Row="1">
+      <StackPanel Spacing="14">
+        <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="9" Padding="14">
+          <StackPanel><TextBlock Text="₿ Bitcoin" FontWeight="SemiBold"/><TextBlock Text="Network: Bitcoin" Foreground="{DynamicResource SecondaryTextBrush}"/><TextBox x:Name="BitcoinBox" IsReadOnly="True"/><Button Content="Copy Bitcoin address" Tag="Bitcoin" Click="CopyAddressClick" HorizontalAlignment="Left"/></StackPanel>
+        </Border>
+        <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="9" Padding="14">
+          <StackPanel><TextBlock Text="💵 Tether" FontWeight="SemiBold"/><TextBlock Text="Network: TRON / TRC20" Foreground="{DynamicResource SecondaryTextBrush}"/><TextBox x:Name="TetherBox" IsReadOnly="True"/><Button Content="Copy TRC20 address" Tag="Tether" Click="CopyAddressClick" HorizontalAlignment="Left"/></StackPanel>
+        </Border>
+        <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="9" Padding="14">
+          <StackPanel><TextBlock Text="🟣 EVM Networks" FontWeight="SemiBold"/><TextBlock Text="Ethereum • BNB Smart Chain • Polygon" Foreground="{DynamicResource SecondaryTextBrush}"/><TextBox x:Name="EvmBox" IsReadOnly="True"/><Button Content="Copy EVM address" Tag="Evm" Click="CopyAddressClick" HorizontalAlignment="Left"/></StackPanel>
+        </Border>
+        <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="9" Padding="14">
+          <StackPanel><TextBlock Text="☀ Solana" FontWeight="SemiBold"/><TextBlock Text="Network: Solana" Foreground="{DynamicResource SecondaryTextBrush}"/><TextBox x:Name="SolanaBox" IsReadOnly="True"/><Button Content="Copy Solana address" Tag="Solana" Click="CopyAddressClick" HorizontalAlignment="Left"/></StackPanel>
+        </Border>
+        <TextBlock Text="⚠ Always verify the complete wallet address and blockchain network before transferring cryptocurrency. Cryptocurrency transactions generally cannot be reversed." TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}"/>
+      </StackPanel>
+    </ScrollViewer>
+    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+      <TextBlock x:Name="StatusText" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,12,0"/>
+      <Button Content="Close" Click="CloseClick" Classes="accent"/>
+    </StackPanel>
+  </Grid>
+</Window>
