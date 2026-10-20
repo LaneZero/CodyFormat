@@ -1,6 +1,49 @@
-# CodyFormat v0.6.0 Stable Test Plan and Release Status
+# CodyFormat Test Plan and Release Status
 
 This document records the validation state of the first stable cross-platform Avalonia baseline.
+
+
+## Current development gate — v0.7.0-alpha.3
+
+Active scope: `.editorconfig` + Profiles v2. Alpha.1 formatter and Alpha.2 batch tests remain mandatory.
+
+Required checks:
+
+```text
+[ ] solution builds with .NET 10
+[ ] formatter regression remains green
+[ ] batch regression remains green
+[ ] root=true stops EditorConfig ancestry
+[ ] nested EditorConfig precedence works
+[ ] brace file patterns work
+[ ] indent_style / indent_size / tab_width work
+[ ] end_of_line works
+[ ] insert_final_newline works
+[ ] trim_trailing_whitespace works
+[ ] GUI/CLI use the shared resolver/policy
+[ ] --no-editorconfig bypasses project rules
+[ ] explicit --indent overrides EditorConfig indent_size
+[ ] Profiles v2 export/import roundtrip passes
+[ ] legacy built-in profiles migrate to schema v2
+[ ] malformed/unsupported profile is rejected safely
+[ ] .codyformat/profile.json project discovery works
+[ ] GitHub Release asset is downloaded back and checksum verified
+[ ] downloaded asset passes fresh runtime smoke test
+```
+
+Windows:
+
+```powershell
+.\scripts\validate-alpha3.ps1
+```
+
+Linux/macOS:
+
+```bash
+./scripts/validate-alpha3.sh
+```
+
+---
 
 ## Current validation status
 
@@ -73,6 +116,8 @@ Run on each primary tested platform after changes that affect UI, formatter, cli
 - [ ] Help
 - [ ] Donate
 - [ ] GitHub action/link
+- [ ] Check Updates (manual only)
+- [ ] Check Updates offline failure message
 - [ ] Settings persistence
 
 ---
@@ -188,11 +233,15 @@ Before upload:
 - verify package filename/version
 - generate SHA-256
 
-After upload:
+After upload, the milestone is not accepted yet:
 
-- download the GitHub asset again
-- compare checksum
-- confirm archive opens
+- download the actual published asset again from GitHub Releases
+- verify its SHA-256 against `SHA256SUMS.txt`
+- extract/install into a clean location
+- verify the expected CodyFormat version
+- run the phase-specific runtime smoke tests
+- record the tested OS/architecture
+- only then mark the milestone accepted
 
 ---
 

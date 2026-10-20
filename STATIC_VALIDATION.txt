@@ -1,0 +1,17 @@
+CodyFormat v0.7.0-alpha.3 - static package validation
+
+PASS: canonical version metadata = 0.7.0-alpha.3
+PASS: XML/AXAML/csproj/Info.plist parsing
+PASS: XAML event-handler wiring check
+PASS: Bash syntax checks
+PASS: Markdown fence consistency
+PASS: C# lexical delimiter sanity check
+PASS: source tree contains no bin/obj/artifacts/TestResults directories
+PASS: alpha.3 .editorconfig/Profile v2 services and validators are present
+
+Runtime/compile validation still requires .NET 10 on a real development system:
+  Windows: .\scripts\validate-alpha3.ps1
+  Linux/macOS: ./scripts/validate-alpha3.sh
+
+Final phase acceptance additionally requires:
+  GitHub Release download-back -> SHA-256 verification -> clean extract -> runtime smoke test.

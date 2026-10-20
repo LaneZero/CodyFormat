@@ -82,6 +82,187 @@ var templateLiteral = "function f(){const x=`{ keep }`;return x;}";
 var jsTemplate = CodeFormatterService.Format(templateLiteral, "JavaScript", 4);
 Check(jsTemplate.Warning is null && jsTemplate.Code.Contains("`{ keep }`", StringComparison.Ordinal), "JavaScript template-literal safety");
 
+// v0.7.0-alpha.1 formatter quality gate retained in alpha.2.
+var python = CodeFormatterService.Format("def add(a,b):\n  x=1\n  if x==1:\n    return a+b  # keep comment\n  return 0", "Python", 4);
+Check(python.Warning is null, "Python formatter warning-free");
+Check(python.Code.Contains("def add(a, b):", StringComparison.Ordinal), "Python comma spacing");
+Check(python.Code.Contains("    x = 1", StringComparison.Ordinal), "Python indentation + assignment spacing");
+Check(python.Code.Contains("    if x == 1:", StringComparison.Ordinal), "Python comparison spacing");
+Check(python.Code.Contains("        return a+b  # keep comment", StringComparison.Ordinal), "Python inline comment preservation");
+
+var invalidJson = "{\n  // keep me\n  \"a\": 1,\n}";
+var jsonSafety = CodeFormatterService.Format(invalidJson, "JSON", 4);
+Check(jsonSafety.Warning is not null && jsonSafety.Code == invalidJson, "JSON non-standard syntax preserved instead of stripped");
+
+var yamlBlock = "message: |\n  keep\n    literal indentation\nnext: value";
+Check(CodeFormatterService.Format(yamlBlock, "YAML", 4).Code == yamlBlock, "YAML block scalar preserved");
+
+var bashHeredoc = "cat <<EOF\n{literal}\nEOF";
+Check(CodeFormatterService.Format(bashHeredoc, "Bash", 4).Code == bashHeredoc, "Bash heredoc preserved");
+
+var rubyHeredoc = "text = <<TXT\n{literal}\nTXT";
+Check(CodeFormatterService.Format(rubyHeredoc, "Ruby", 4).Code == rubyHeredoc, "Ruby heredoc preserved");
+
+var luaLong = "local s = [[{literal}]]";
+Check(CodeFormatterService.Format(luaLong, "Lua", 4).Code == luaLong, "Lua long string preserved");
+
+var psHere = "@\"\n{literal}\n\"@";
+Check(CodeFormatterService.Format(psHere, "PowerShell", 4).Code == psHere, "PowerShell here-string preserved");
+
+var cppRaw = "auto s = R\"({literal})\";";
+Check(CodeFormatterService.Format(cppRaw, "C++", 4).Code == cppRaw, "C++ raw string preserved");
+
+var markdownExact = "# Title\n\n- item  ";
+Check(CodeFormatterService.Format(markdownExact, "Markdown", 4).Code == markdownExact.Trim('\n', '\r'), "Markdown whitespace-sensitive preservation");
+
+
+// Manual update-check version ordering gate. No network request is made by smoke tests.
+Check(VersionComparisonService.IsNewer("0.7.0-alpha.3", "0.7.0-alpha.2"), "Version compare: alpha.3 > alpha.2");
+Check(VersionComparisonService.IsNewer("0.7.0-beta.1", "0.7.0-alpha.9"), "Version compare: beta > alpha");
+Check(VersionComparisonService.IsNewer("0.7.0-rc.1", "0.7.0-beta.9"), "Version compare: rc > beta");
+Check(VersionComparisonService.IsNewer("0.7.0", "0.7.0-rc.9"), "Version compare: stable > rc");
+Check(VersionComparisonService.Compare("v0.7.0-alpha.3", "0.7.0-alpha.3") == 0, "Version compare: optional v prefix");
+
+// v0.7.0-alpha.2 batch/folder formatting gate.
+Check(GlobMatcher.IsMatch("src/sample.py", "**/*.py"), "Batch glob recursive include");
+Check(GlobMatcher.IsMatch("sample.py", "**/*.py"), "Batch glob root include");
+Check(!GlobMatcher.IsMatch("src/sample.cs", "**/*.py"), "Batch glob extension exclusion");
+
+var batchRoot = Path.Combine(Path.GetTempPath(), "codyformat-batch-" + Guid.NewGuid().ToString("N"));
+Directory.CreateDirectory(batchRoot);
+try
+{
+    Directory.CreateDirectory(Path.Combine(batchRoot, "src"));
+    Directory.CreateDirectory(Path.Combine(batchRoot, "bin"));
+    Directory.CreateDirectory(Path.Combine(batchRoot, "Generated"));
+
+    var batchPython = Path.Combine(batchRoot, "src", "sample.py");
+    var ignoredPython = Path.Combine(batchRoot, "bin", "ignored.py");
+    var excludedPython = Path.Combine(batchRoot, "Generated", "generated.py");
+
+    File.WriteAllText(batchPython, "def f(a,b):\n  x=1\n  return a+b\n", new UTF8Encoding(false));
+    File.WriteAllText(ignoredPython, "def f(a,b):\n  return a+b\n", new UTF8Encoding(false));
+    File.WriteAllText(excludedPython, "def f(a,b):\n  return a+b\n", new UTF8Encoding(false));
+
+    var checkBatch = BatchFormatService.RunAsync(new CodyFormat.Models.BatchFormatRequest(
+        batchRoot,
+        Recursive: true,
+        CheckOnly: true,
+        Write: false,
+        Backup: false,
+        IndentSize: 4,
+        IndentStyle: "space",
+        IndentWasExplicit: false,
+        UseEditorConfig: true,
+        LanguageOverride: null,
+        IncludePatterns: Array.Empty<string>(),
+        ExcludePatterns: new[] { "**/Generated/**" })).GetAwaiter().GetResult();
+
+    Check(checkBatch.Supported == 1, "Batch supported-file discovery + default/custom exclusions");
+    Check(checkBatch.Changed == 1 && checkBatch.Written == 0, "Batch check is non-destructive");
+    Check(File.ReadAllText(batchPython).Contains("def f(a,b):", StringComparison.Ordinal), "Batch check preserved original file");
+
+    var writeBatch = BatchFormatService.RunAsync(new CodyFormat.Models.BatchFormatRequest(
+        batchRoot,
+        Recursive: true,
+        CheckOnly: false,
+        Write: true,
+        Backup: true,
+        IndentSize: 4,
+        IndentStyle: "space",
+        IndentWasExplicit: false,
+        UseEditorConfig: true,
+        LanguageOverride: null,
+        IncludePatterns: new[] { "**/*.py" },
+        ExcludePatterns: new[] { "**/Generated/**" })).GetAwaiter().GetResult();
+
+    Check(writeBatch.Written == 1 && writeBatch.Failed == 0, "Batch write changes expected file");
+    Check(File.ReadAllText(batchPython).Contains("def f(a, b):", StringComparison.Ordinal), "Batch write formatted Python");
+    Check(File.Exists(batchPython + ".codyformat.bak"), "Batch backup created");
+
+    var secondCheck = BatchFormatService.RunAsync(new CodyFormat.Models.BatchFormatRequest(
+        batchRoot,
+        Recursive: true,
+        CheckOnly: true,
+        Write: false,
+        Backup: false,
+        IndentSize: 4,
+        IndentStyle: "space",
+        IndentWasExplicit: false,
+        UseEditorConfig: true,
+        LanguageOverride: null,
+        IncludePatterns: new[] { "**/*.py" },
+        ExcludePatterns: new[] { "**/Generated/**" })).GetAwaiter().GetResult();
+
+    Check(secondCheck.Changed == 0, "Batch second check is clean");
+}
+finally
+{
+    if (Directory.Exists(batchRoot))
+        Directory.Delete(batchRoot, recursive: true);
+}
+
+
+// v0.7.0-alpha.3 .editorconfig + Profiles v2 gate.
+var editorOuter = Path.Combine(Path.GetTempPath(), "codyformat-editorconfig-" + Guid.NewGuid().ToString("N"));
+var editorRoot = Path.Combine(editorOuter, "project");
+Directory.CreateDirectory(Path.Combine(editorRoot, "src", "nested"));
+try
+{
+    File.WriteAllText(Path.Combine(editorOuter, ".editorconfig"), "[*.py]\nindent_size = 8\n");
+    File.WriteAllText(Path.Combine(editorRoot, ".editorconfig"), "root = true\n\n[*.py]\nindent_style = space\nindent_size = 2\nend_of_line = lf\ninsert_final_newline = true\ntrim_trailing_whitespace = true\n");
+    File.WriteAllText(Path.Combine(editorRoot, "src", ".editorconfig"), "[*.{py,pyw}]\nindent_size = 4\n");
+    var editorFile = Path.Combine(editorRoot, "src", "nested", "sample.py");
+    File.WriteAllText(editorFile, "def f():\n  x=1   \n", new UTF8Encoding(false));
+
+    var resolved = EditorConfigService.Resolve(editorFile);
+    Check(resolved.IndentStyle == "space", "EditorConfig indent_style resolved");
+    Check(resolved.IndentSize == 4, "EditorConfig nested precedence + brace pattern");
+    Check(resolved.EndOfLine == "lf", "EditorConfig inherited end_of_line");
+    Check(resolved.InsertFinalNewline == true && resolved.TrimTrailingWhitespace == true, "EditorConfig whitespace policy");
+    Check(resolved.SourceFiles.Count == 2, "EditorConfig source chain + root=true stops parent ancestry");
+
+    var policyOutput = FormattingPolicyService.Apply("\tvalue   \n", resolved with { IndentSize = 4 }, 4, "\r\n", true);
+    Check(policyOutput == "    value\n", "EditorConfig formatting policy application");
+}
+finally
+{
+    if (Directory.Exists(editorOuter)) Directory.Delete(editorOuter, true);
+}
+
+var legacyProfile = FormattingProfileService.Get("Documentation")!;
+var migrated = FormattingProfileV2Service.FromLegacy(legacyProfile);
+Check(migrated.SchemaVersion == 2 && migrated.Name == "Documentation", "Profiles v2 legacy migration");
+Check(FormattingProfileV2Service.Validate(migrated, out _), "Profiles v2 validation");
+
+using (var profileStream = new MemoryStream())
+{
+    FormattingProfileV2Service.WriteAsync(profileStream, migrated).GetAwaiter().GetResult();
+    profileStream.Position = 0;
+    Check(FormattingProfileV2Service.TryLoad(profileStream, out var loadedProfile, out _), "Profiles v2 export/import roundtrip");
+    Check(loadedProfile?.Formatting.IndentSize == migrated.Formatting.IndentSize, "Profiles v2 roundtrip values");
+}
+
+using (var invalidProfile = new MemoryStream(Encoding.UTF8.GetBytes("{\"schemaVersion\":99,\"name\":\"Bad\"}")))
+    Check(!FormattingProfileV2Service.TryLoad(invalidProfile, out _, out _), "Profiles v2 rejects unsupported schema");
+
+var projectRoot = Path.Combine(Path.GetTempPath(), "codyformat-project-profile-" + Guid.NewGuid().ToString("N"));
+Directory.CreateDirectory(Path.Combine(projectRoot, ".codyformat"));
+Directory.CreateDirectory(Path.Combine(projectRoot, "src"));
+try
+{
+    var projectProfile = FormattingProfileV2Service.FromLegacy(FormattingProfileService.Get("Minimal")!);
+    FormattingProfileV2Service.Export(Path.Combine(projectRoot, ".codyformat", "profile.json"), projectProfile);
+    var projectFile = Path.Combine(projectRoot, "src", "a.cs");
+    File.WriteAllText(projectFile, "class A{}");
+    Check(FormattingProfileV2Service.TryFindProjectProfile(projectFile, out var foundProjectProfile, out _, out _), "Project profile discovery");
+    Check(foundProjectProfile?.Name == "Minimal", "Project profile value");
+}
+finally
+{
+    if (Directory.Exists(projectRoot)) Directory.Delete(projectRoot, true);
+}
+
 var theme = ThemeService.Get("Dark");
 var highlighter = new SyntaxHighlighterService();
 var html = RichCodeExportService.BuildHtmlFragment("SELECT 1;", "SQL", theme, "None", false, false, 4, "Consolas", 12, highlighter);

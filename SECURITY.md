@@ -40,3 +40,8 @@ CodyFormat is designed as a local formatter/highlighter. It should not intention
 Source files must still be treated as untrusted input. Parsers, file handling, clipboard export, and document generation should validate data and avoid executing source content.
 
 Future external formatter-provider integration must remain explicit and local. CodyFormat must not silently download or execute unknown formatter binaries.
+
+
+## Manual update checks
+
+CodyFormat does not perform automatic or background update checks. When the user explicitly invokes **Check Updates**, CodyFormat sends an HTTPS GET request to the public GitHub Releases API for the CodyFormat repository. Source code, editor contents, file paths, clipboard contents, profiles, and formatting inputs are not included in that request. Formatting and export features do not depend on this network request.

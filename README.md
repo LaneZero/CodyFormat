@@ -1,10 +1,12 @@
 # CodyFormat
 
-**CodyFormat** is a lightweight, privacy-first, fully offline code formatter, syntax highlighter, and export tool for developers who need clean code in documentation, Microsoft Word, Telegram, reports, presentations, and day-to-day development work.
+**CodyFormat** is a lightweight, privacy-first, offline-first code formatter, syntax highlighter, and export tool for developers who need clean code in documentation, Microsoft Word, Telegram, reports, presentations, and day-to-day development work.
 
 CodyFormat processes source code locally. It does **not** upload your code, require an account, use telemetry, or depend on an online formatting service.
 
 > **Current stable release:** `v0.6.0`
+>
+> **Current development build:** `v0.7.0-alpha.3` adds shared `.editorconfig` resolution and Profiles v2 on top of the validated CLI/batch formatter work. It does **not** replace the v0.6.0 Stable release.
 >
 > Runtime validation completed on **Windows x64**, **Ubuntu Linux x64**, and **macOS Apple Silicon on a real Apple M1 Mac**. Windows ARM64, Linux ARM64, and macOS Intel packages can also be published, but remain architecture-specific validation targets until they receive equivalent real-hardware coverage.
 
@@ -206,6 +208,7 @@ Compare the result with `SHA256SUMS.txt`.
 - Formatting profiles for documentation and presentation use
 - Built-in Help and Donate pages
 - Cross-platform application icon and desktop integration
+- Manual **Check Updates** action using GitHub Releases (no automatic/background checks)
 
 ---
 
@@ -352,6 +355,26 @@ DOCX generation is independent of the operating-system clipboard and is the reco
 
 ---
 
+## Development CLI — v0.7.0-alpha.3
+
+The v0.7 development line introduces `CodyFormat.Cli`, which reuses the same `CodyFormat.Core` formatter used by the desktop application.
+
+Initial commands:
+
+```bash
+codyformat file.cs
+codyformat file.cs --check
+codyformat file.cs --write
+codyformat query.sql --language sql --indent 4
+cat script.py | codyformat --stdin --language python
+```
+
+`--check` never writes. `--write` uses a same-directory temporary file and replacement path so formatter failures do not truncate the original source. See [`docs/CLI.md`](docs/CLI.md) for the alpha contract and exit codes.
+
+The same development build also introduces a formatter regression matrix for all selectable languages. Python is the priority regression target. See [`docs/FORMATTER-QUALITY.md`](docs/FORMATTER-QUALITY.md).
+
+---
+
 ## Build from source
 
 ### Requirements
@@ -395,6 +418,9 @@ dotnet run --project src/CodyFormat.Desktop/CodyFormat.Desktop.csproj
 ```
 
 ---
+
+
+> Starting with the v0.7 development line, platform release packages also include the self-contained CLI under `cli/`, so the same GitHub-downloaded package can be used to validate both the desktop application and CLI behavior.
 
 ## Create release builds
 
@@ -465,7 +491,7 @@ Both scripts create:
 artifacts/SHA256SUMS.txt
 ```
 
-For the complete maintainer workflow, see [`RELEASE_GUIDE.md`](RELEASE_GUIDE.md). For the one-time GitHub promotion of the stable `v0.6.0` codebase, see [`docs/GIT-FINALIZE-v0.6.0.md`](docs/GIT-FINALIZE-v0.6.0.md). For the Apple Silicon build/test/sign/notarize workflow, see [`docs/macOS-M1-Build-Test-Release-Guide.md`](docs/macOS-M1-Build-Test-Release-Guide.md).
+For the complete maintainer workflow, see [`RELEASE_GUIDE.md`](RELEASE_GUIDE.md). For the Apple Silicon build/test/sign/notarize workflow, see [`docs/macOS-M1-Build-Test-Release-Guide.md`](docs/macOS-M1-Build-Test-Release-Guide.md).
 
 ---
 
@@ -494,56 +520,91 @@ The Stable baseline must not be modified directly for experimental features. New
 
 ## Roadmap
 
-Future development is intentionally split into versioned milestones so Stable does not become a moving target.
+`v0.6.0` is the current Stable baseline. Feature development continues on separate version branches; the Stable line is reserved for maintenance fixes.
 
-### v0.7.0 — Developer workflow
+### v0.7.0 — Developer Workflow
 
-- CLI mode
-- Batch / folder formatting
-- `.editorconfig` support
-- Native formatter-provider integration with safe built-in fallback
-- Expanded project/profile workflow
-- SQL dialect-aware formatting improvements
-- Find / Replace and practical editor improvements
+- CLI with file, stdin/stdout, `--check`, and safe `--write`
+- Batch/folder formatting with dry-run and include/exclude rules
+- `.editorconfig` resolution shared by GUI and CLI
+- Profiles v2 with import/export and migration
+- Optional local formatter providers with built-in offline fallback
+- SQL dialect-aware formatting
+- Find / Replace
 
-### v0.8.0 — Export and presentation
+Development is staged through `alpha → beta → rc → stable` with explicit safety and cross-platform release gates.
 
-- Export code as PNG
-- Export code as SVG
-- Copy as Markdown
-- Copy as HTML
-- Advanced before/after diff
-- Formatting safety report
-- Custom theme editor
-- Import compatible VS Code color themes
-- Beautify / Minify tools where syntax permits
-- Expanded JSON / XML utilities
+### v0.8.0 — Export & Presentation
 
-### v0.9.0 — Desktop productivity and scale
+- PNG/SVG export
+- Markdown/HTML output
+- Advanced Diff
+- Formatting Safety Report
+- Theme Editor and compatible VS Code theme import
+- Explicit Beautify/Minify utilities
+- Expanded JSON/XML tools
+
+### v0.9.0 — Desktop Productivity & Scale
 
 - Command Palette
-- OS file-context integration
-- Portable mode
-- Session recovery with privacy controls
+- OS integration
+- Portable Mode
+- privacy-aware Session Recovery
 - Large File Mode
-- Performance statistics
-- Current block/function/class formatting where safe parsing is available
-- Further project-mode improvements
+- performance statistics
+- Project Mode
+- structure-aware formatting where reliable parsing is available
 
-### v1.0.0 — Long-term stable toolchain
+### v1.0.0 — Stable Toolchain Contract
 
-- Stable Windows, Linux, and macOS desktop release line
-- Stable CLI behavior
-- Stable formatter/provider contracts
-- Stable profiles and themes
-- Full regression suite across supported platforms
-- Accessibility and keyboard-navigation completion
-- Packaging/signing/release automation hardening
-- Compatibility policy and documented upgrade guarantees
+- stable CLI/provider/profile/theme contracts
+- full cross-platform regression suite
+- accessibility completion
+- hardened packaging/signing automation
+- performance and memory gates
+- compatibility and upgrade policy
 
-See [`ROADMAP.md`](ROADMAP.md) for scope, non-goals, and release gates.
+See [`ROADMAP.md`](ROADMAP.md) for the complete release train and release gates.
+
+For the detailed implementation sequence of the next version, see [`docs/v0.7.0-DEVELOPMENT-PLAN.md`](docs/v0.7.0-DEVELOPMENT-PLAN.md).
 
 ---
+
+### Batch / folder formatting — alpha.2
+
+Batch mode is non-destructive unless `--write` is explicitly supplied.
+
+```bash
+codyformat ./src --recursive --check
+codyformat ./src --recursive --write
+codyformat ./src --recursive --write --backup
+codyformat . --recursive --check --include "**/*.cs" --exclude "**/Generated/**"
+```
+
+Default excluded directories:
+
+```text
+.git
+bin
+obj
+artifacts
+TestResults
+node_modules
+```
+
+`--include` and `--exclude` can be repeated. Recursive directory symlinks/reparse points are not followed.
+
+For every Alpha/Beta/RC/Stable milestone, final acceptance requires downloading the published GitHub Release asset again, verifying SHA-256, extracting it into a fresh location, and running the runtime smoke test on those downloaded bytes.
+
+See [`docs/RELEASE-ASSET-VERIFICATION.md`](docs/RELEASE-ASSET-VERIFICATION.md).
+
+
+
+### Project configuration — alpha.3
+
+CodyFormat now resolves `.editorconfig` locally for file and batch formatting. Supported rules include indentation style/size, tab width, line endings, final newline, and trailing whitespace. Use `--no-editorconfig` for an explicit one-operation opt-out.
+
+Profiles v2 add versioned JSON import/export and project profiles at `.codyformat/profile.json`. See [`docs/EDITORCONFIG.md`](docs/EDITORCONFIG.md) and [`docs/PROFILES-V2.md`](docs/PROFILES-V2.md).
 
 ## Project structure
 
@@ -553,6 +614,7 @@ CodyFormat.sln
 src/
 ├── CodyFormat.Core/
 ├── CodyFormat.Desktop/
+├── CodyFormat.Cli/
 └── CodyFormat.SmokeTests/
 
 packaging/
@@ -564,6 +626,8 @@ scripts/
 ├── publish-linux.sh
 ├── publish-macos.sh
 ├── smoke-test.sh
+├── validate-alpha2.ps1
+├── validate-alpha2.sh
 ├── create-checksums.ps1
 └── create-checksums.sh
 ```
@@ -585,6 +649,13 @@ It does not intentionally:
 - call a cloud formatter
 - send analytics or telemetry
 - require an account
+
+
+### Network behavior
+
+Normal formatting, highlighting, clipboard/export, CLI, and batch operations do not require an internet connection.
+
+CodyFormat does **not** perform automatic or background update checks. The only update request is made when the user explicitly clicks **Check Updates**. That action queries the public GitHub Releases API for `LaneZero/CodyFormat` and does not upload source code or editor contents.
 
 Source code is not stored in the application settings file.
 
@@ -633,7 +704,7 @@ See:
 
 **LaneZeroO**
 
-GitHub: https://github.com/LaneZero
+GitHub: https://github.com/LaneZero  
 Project: https://github.com/LaneZero/CodyFormat
 
 ---

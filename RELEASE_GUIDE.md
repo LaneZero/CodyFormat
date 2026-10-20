@@ -209,6 +209,9 @@ See `TESTING.md` for the complete matrix.
 
 ---
 
+
+> Starting with the v0.7 development line, platform release packages also include the self-contained CLI under `cli/`, so the same GitHub-downloaded package can be used to validate both the desktop application and CLI behavior.
+
 ## 8. Collect release archives
 
 For a complete Stable release, the `artifacts/` directory can contain:
@@ -360,3 +363,26 @@ develop/v0.7.0
 ```
 
 The planned scope is documented in [`ROADMAP.md`](ROADMAP.md).
+
+---
+
+## Mandatory GitHub Release download-back test
+
+Publishing a Release is not the end of validation. For every Alpha, Beta, RC, and Stable milestone, the maintainer must download the final asset back from the GitHub Release page and test that exact package.
+
+Required:
+
+```text
+Local validation PASS
+→ Package
+→ SHA-256
+→ GitHub Release
+→ Download asset back from GitHub
+→ Verify SHA-256
+→ Fresh extract/install
+→ Verify version
+→ Runtime smoke test
+→ Milestone accepted
+```
+
+The GitHub-downloaded bytes are authoritative. This catches packaging, signing/notarization, wrong-asset, or upload mistakes that local source tests cannot detect.

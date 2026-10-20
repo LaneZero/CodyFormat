@@ -4,6 +4,75 @@ All notable changes to CodyFormat are documented in this file.
 
 CodyFormat v0.6.0 is the first stable cross-platform Avalonia baseline for Windows, Linux, and macOS. The earlier preview entries are preserved below as migration history.
 
+## [0.7.0-alpha.3] - 2026-10-20
+
+### Added
+
+- Shared `.editorconfig` resolver for CLI and desktop formatting.
+- Support for `indent_style`, `indent_size`, `tab_width`, `end_of_line`, `insert_final_newline`, and `trim_trailing_whitespace`.
+- Nested `.editorconfig` precedence and `root = true` handling.
+- CLI `--no-editorconfig` opt-out.
+- Profiles v2 versioned JSON schema with import/export.
+- Migration of legacy built-in profiles into Profiles v2.
+- Project profile discovery at `.codyformat/profile.json`.
+- GUI Profile v2 Import/Export actions and `.editorconfig` toggle.
+
+### Safety
+
+- Profiles contain no executable-command hooks.
+- Invalid/unsupported profile schema is rejected without replacing current settings.
+- Unsupported `.editorconfig` properties are ignored.
+- Alpha.1 formatter and Alpha.2 batch regression gates remain mandatory.
+
+## [0.7.0-alpha.2] - 2026-10-19
+
+### Added
+
+- Recursive Batch / Folder Formatting in the CLI.
+- Repeatable `--include` and `--exclude` glob filters.
+- Default exclusions for `.git`, `bin`, `obj`, `artifacts`, `TestResults`, and `node_modules`.
+- Non-destructive batch `--check` mode and explicit `--write` mode.
+- Optional `--backup` before replacement.
+- Cancellation support and per-file failure isolation.
+- Batch Scanned/Supported/Changed/Unchanged/Failed/Written summaries.
+- Shared `TextFileCodecService`, `BatchFormatService`, and `GlobMatcher` in Core.
+- Mandatory GitHub Release download-back validation gate.
+- Manual **Check Updates** action that queries GitHub Releases only when explicitly invoked.
+- SemVer-aware stable/prerelease comparison for update checks.
+
+### Changed
+
+- Fixed Alpha.2 CLI compilation failure caused by `DecoderFallbackException` being caught after its `ArgumentException` base type.
+- Validator now stops immediately when restore/build fails instead of continuing to later CLI checks.
+- Alpha.1 Python and all-language formatter regression gates remain mandatory.
+- Development version advanced to `0.7.0-alpha.2`.
+
+## [0.7.0-alpha.1] - 2026-09-11
+
+### CLI foundation
+
+- Added `CodyFormat.Cli` backed by the same `CodyFormat.Core` formatter used by the desktop app.
+- Added single-file formatting, stdin/stdout, language override, indent/profile selection, `--check`, safe `--write`, `--help`, and `--version`.
+- Defined deterministic CLI exit codes: 0 success, 1 changes required, 2 usage error, 3 I/O error, 4 formatter failure.
+- File writes preserve detected BOM/encoding and original line-ending style, and use a same-directory temporary file before replacement.
+
+### Formatter quality pass
+
+- Promoted the reported Python formatting issue to Priority 0.
+- Improved Python indentation normalization plus comma, assignment, comparison, and inline-comment spacing while protecting strings and triple-quoted bodies conservatively.
+- Changed JSON formatting to strict JSON parsing so comments/trailing commas are preserved with a warning instead of being silently discarded.
+- Changed YAML block-scalar handling to preserve literal/folded content instead of normalizing its indentation.
+- Added conservative safety guards for PowerShell block-comment input and C/C++ multiline preprocessor macros.
+- Kept representative smoke coverage for every selectable language and added focused safety regressions for Python, JSON, YAML, Bash, Ruby, Lua, PowerShell, C++, Rust, JavaScript templates, Markdown, clipboard output, and DOCX.
+
+### Validation
+
+- Added `scripts/validate-alpha1.ps1` and `scripts/validate-alpha1.sh`.
+- Extended CI to `develop/**` branches and added CLI build/help/version checks.
+- Added `docs/CLI.md` and `docs/FORMATTER-QUALITY.md`.
+
+> Development status: Alpha. This build does not replace `v0.6.0` Stable.
+
 ## [0.6.0] - 2026-09-03
 
 ### Stable cross-platform baseline

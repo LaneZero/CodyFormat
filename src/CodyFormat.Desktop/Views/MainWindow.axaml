@@ -22,7 +22,7 @@
           <StackPanel Orientation="Horizontal">
             <TextBlock Text="CodyFormat" FontSize="25" FontWeight="SemiBold"/>
             <Border Background="{DynamicResource BadgeBrush}" CornerRadius="9" Padding="7,3" Margin="9,3,0,0">
-              <TextBlock Text="v0.6.0" Foreground="{DynamicResource BadgeTextBrush}" FontSize="10" FontWeight="SemiBold"/>
+              <TextBlock Text="v0.7.0-alpha.3" Foreground="{DynamicResource BadgeTextBrush}" FontSize="10" FontWeight="SemiBold"/>
             </Border>
           </StackPanel>
           <TextBlock Text="Offline code formatting across Windows, macOS and Linux."
@@ -34,6 +34,7 @@
         <Border Background="{DynamicResource OfflineBadgeBrush}" CornerRadius="13" Padding="10,5" Margin="0,0,8,0">
           <TextBlock x:Name="PlatformBadgeText" Foreground="{DynamicResource OfflineBadgeTextBrush}" FontSize="11" FontWeight="SemiBold"/>
         </Border>
+        <Button x:Name="CheckUpdatesButton" Content="Check Updates" Click="CheckUpdatesClick" ToolTip.Tip="Manually check GitHub Releases for a newer CodyFormat version"/>
         <Button Content="GitHub" Click="GitHubClick"/>
         <Button Content="Donate" Click="DonateClick"/>
         <Button Content="Help" Click="HelpClick"/>
@@ -52,12 +53,15 @@
             <ComboBox x:Name="ThemeBox" MinWidth="90" SelectionChanged="ThemeSelectionChanged"/>
             <TextBlock Text="Profile" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{DynamicResource MutedTextBrush}"/>
             <ComboBox x:Name="ProfileBox" MinWidth="145" SelectionChanged="ProfileSelectionChanged"/>
+            <Button Content="Import" Click="ImportProfileClick" ToolTip.Tip="Import a CodyFormat Profile v2 JSON file"/>
+            <Button Content="Export" Click="ExportProfileClick" ToolTip.Tip="Export the selected/current profile as Profile v2"/>
             <TextBlock Text="Background" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{DynamicResource MutedTextBrush}"/>
             <ComboBox x:Name="BackgroundBox" MinWidth="135" SelectionChanged="OptionsSelectionChanged"/>
             <CheckBox x:Name="NoBackgroundBox" Content="None" IsCheckedChanged="NoBackgroundChanged"/>
           </WrapPanel>
           <WrapPanel>
-            <TextBlock Text="Indent" VerticalAlignment="Center" Margin="6,0,0,0" Foreground="{DynamicResource MutedTextBrush}"/>
+            <CheckBox x:Name="EditorConfigBox" Content=".editorconfig" IsCheckedChanged="EditorConfigChanged" ToolTip.Tip="Apply project .editorconfig rules when a local file is open"/>
+            <TextBlock Text="Indent" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{DynamicResource MutedTextBrush}"/>
             <ComboBox x:Name="IndentBox" MinWidth="70" SelectionChanged="OptionsSelectionChanged"/>
             <TextBlock Text="Font" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{DynamicResource MutedTextBrush}"/>
             <ComboBox x:Name="FontBox" MinWidth="150" SelectionChanged="TypographySelectionChanged"/>

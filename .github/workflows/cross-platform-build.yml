@@ -2,7 +2,7 @@ name: Cross-platform build
 
 on:
   push:
-    branches: [ main, "feature/**", "cross-platform/**" ]
+    branches: [ main, "develop/**", "feature/**", "cross-platform/**" ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -15,7 +15,9 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - run: dotnet run --project src/CodyFormat.SmokeTests/CodyFormat.SmokeTests.csproj -c Release
+      - name: Alpha.3 validation gate
+        shell: bash
+        run: ./scripts/validate-alpha3.sh
 
   publish:
     strategy:
@@ -40,9 +42,16 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - name: Publish ${{ matrix.rid }}
+      - name: Publish desktop ${{ matrix.rid }}
         shell: bash
         run: dotnet publish src/CodyFormat.Desktop/CodyFormat.Desktop.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:UseAppHost=true -o artifacts/${{ matrix.rid }}
+      - name: Publish CLI ${{ matrix.rid }}
+        shell: bash
+        run: |
+          dotnet publish src/CodyFormat.Cli/CodyFormat.Cli.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:UseAppHost=true -o artifacts/cli-publish/${{ matrix.rid }}
+          mkdir -p artifacts/${{ matrix.rid }}/cli
+          cp -a artifacts/cli-publish/${{ matrix.rid }}/. artifacts/${{ matrix.rid }}/cli/
+          if [[ "${{ runner.os }}" != "Windows" ]]; then chmod +x artifacts/${{ matrix.rid }}/cli/codyformat; fi
       - name: Add Linux desktop integration
         if: startsWith(matrix.rid, 'linux-')
         shell: bash

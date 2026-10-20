@@ -58,10 +58,12 @@ public static class CodeFormatterService
 
     private static string FormatJson(string code, int indentSize)
     {
+        // Strict JSON only. Do not silently discard comments or trailing commas.
+        // Invalid/non-standard JSON is returned unchanged by the outer safety catch.
         using var document = JsonDocument.Parse(code, new JsonDocumentOptions
         {
-            AllowTrailingCommas = true,
-            CommentHandling = JsonCommentHandling.Skip
+            AllowTrailingCommas = false,
+            CommentHandling = JsonCommentHandling.Disallow
         });
 
         var json = JsonSerializer.Serialize(document.RootElement, new JsonSerializerOptions { WriteIndented = true });
@@ -552,6 +554,8 @@ public static class CodeFormatterService
             ((language is "JavaScript" or "TypeScript" or "Go") && code.Contains('`')) ||
             (language == "Groovy" && (code.Contains("$/", StringComparison.Ordinal) || code.Contains("/$", StringComparison.Ordinal))) ||
             ((language is "C" or "C++") && code.Contains("R\"(", StringComparison.Ordinal)) ||
+            ((language is "C" or "C++") && Regex.IsMatch(code, @"(?m)^\s*#\s*define\b.*\\\s*$")) ||
+            (language == "PowerShell" && code.Contains("<#", StringComparison.Ordinal)) ||
             (language == "Rust" && Regex.IsMatch(code, "\\br#+\\\"")))
             return PreserveWhitespaceSensitive(code);
 
@@ -772,11 +776,171 @@ public static class CodeFormatterService
 
     private static string FormatPython(string code, int indentSize)
     {
-        // Python indentation is syntax. Normalize the established indentation unit, but do not
-        // touch triple-quoted source where leading/trailing whitespace can be literal data.
-        if (code.Contains("\"\"\"", StringComparison.Ordinal) || code.Contains("'''", StringComparison.Ordinal))
-            return PreserveWhitespaceSensitive(code);
-        return NormalizeIndentationSensitive(code, indentSize);
+        // Python indentation is syntax. Normalize only existing indentation levels and
+        // improve spacing outside strings/comments. Triple-quoted string bodies remain
+        // byte-for-byte (apart from newline normalization already used by the editor).
+        var lines = NormalizeNewLines(code).Split('\n');
+        var sourceUnit = DetectPythonIndentUnit(lines, indentSize);
+        var output = new List<string>(lines.Length);
+        char tripleQuote = '\0';
+
+        foreach (var raw in lines)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                output.Add(string.Empty);
+                continue;
+            }
+
+            if (tripleQuote != '\0')
+            {
+                output.Add(raw.TrimEnd());
+                UpdatePythonTripleQuoteState(raw, ref tripleQuote);
+                continue;
+            }
+
+            var width = LeadingIndentWidth(raw);
+            var levels = width / sourceUnit;
+            var remainder = width % sourceUnit;
+            var content = raw.TrimStart(' ', '\t').TrimEnd();
+            var normalizedWidth = levels * indentSize + Math.Min(remainder, Math.Max(0, indentSize - 1));
+
+            var containsTriple = ContainsPythonTripleQuote(content);
+            UpdatePythonTripleQuoteState(content, ref tripleQuote);
+            var formattedContent = containsTriple ? content : FormatPythonLine(content);
+            output.Add(new string(' ', normalizedWidth) + formattedContent);
+        }
+
+        return RemoveExcessBlankLines(string.Join("\n", output));
+    }
+
+    private static int DetectPythonIndentUnit(IEnumerable<string> lines, int fallback)
+    {
+        var widths = new List<int>();
+        char triple = '\0';
+        foreach (var raw in lines)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) continue;
+            if (triple != '\0')
+            {
+                UpdatePythonTripleQuoteState(raw, ref triple);
+                continue;
+            }
+
+            var width = LeadingIndentWidth(raw);
+            if (width > 0) widths.Add(width);
+            UpdatePythonTripleQuoteState(raw, ref triple);
+        }
+        return DetectIndentUnit(widths, fallback);
+    }
+
+    private static string FormatPythonLine(string line)
+    {
+        if (line.Length == 0 || line.TrimStart().StartsWith('#')) return line.TrimEnd();
+
+        var sb = new StringBuilder(line.Length + 16);
+        var codeSegment = new StringBuilder();
+        char quote = '\0';
+        var escaped = false;
+
+        void FlushCode()
+        {
+            if (codeSegment.Length == 0) return;
+            sb.Append(FormatPythonCodeSegment(codeSegment.ToString()));
+            codeSegment.Clear();
+        }
+
+        for (var i = 0; i < line.Length; i++)
+        {
+            var ch = line[i];
+            if (quote != '\0')
+            {
+                sb.Append(ch);
+                if (escaped) { escaped = false; continue; }
+                if (ch == '\\') { escaped = true; continue; }
+                if (ch == quote) quote = '\0';
+                continue;
+            }
+
+            if (ch is '\'' or '"')
+            {
+                FlushCode();
+                quote = ch;
+                sb.Append(ch);
+                continue;
+            }
+
+            if (ch == '#')
+            {
+                FlushCode();
+                TrimTrailingSpaces(sb);
+                if (sb.Length > 0) sb.Append("  ");
+                sb.Append(line[i..].TrimEnd());
+                return sb.ToString().TrimEnd();
+            }
+
+            codeSegment.Append(ch);
+        }
+
+        FlushCode();
+        return sb.ToString().TrimEnd();
+    }
+
+    private static string FormatPythonCodeSegment(string segment)
+    {
+        var value = segment;
+        value = Regex.Replace(value, @"\s*(==|!=|<=|>=|:=|\+=|-=|\*=|/=|//=|%=|\*\*=|<<=|>>=|&=|\|=|\^=|=)\s*", " $1 ");
+        value = Regex.Replace(value, @"\s*->\s*", " -> ");
+        value = Regex.Replace(value, @"\s*,\s*", ", ");
+        value = Regex.Replace(value, @"\s*;\s*", "; ");
+        value = Regex.Replace(value, @"\(\s+", "(");
+        value = Regex.Replace(value, @"\s+\)", ")");
+        value = Regex.Replace(value, @"\[\s+", "[");
+        value = Regex.Replace(value, @"\s+\]", "]");
+        value = Regex.Replace(value, @"\{\s+", "{");
+        value = Regex.Replace(value, @"\s+\}", "}");
+        value = Regex.Replace(value, @"[ \t]{2,}", " ");
+        return value;
+    }
+
+    private static bool ContainsPythonTripleQuote(string line)
+        => line.Contains(new string('"', 3), StringComparison.Ordinal) ||
+           line.Contains(new string('\'', 3), StringComparison.Ordinal);
+
+    private static void UpdatePythonTripleQuoteState(string line, ref char tripleQuote)
+    {
+        var single = false;
+        var dbl = false;
+        var escaped = false;
+        for (var i = 0; i + 2 < line.Length; i++)
+        {
+            var ch = line[i];
+            if (tripleQuote != '\0')
+            {
+                if (ch == tripleQuote && line[i + 1] == tripleQuote && line[i + 2] == tripleQuote && !escaped)
+                {
+                    tripleQuote = '\0';
+                    i += 2;
+                    continue;
+                }
+                escaped = ch == '\\' && !escaped;
+                if (ch != '\\') escaped = false;
+                continue;
+            }
+
+            if (escaped) { escaped = false; continue; }
+            if ((single || dbl) && ch == '\\') { escaped = true; continue; }
+            if (!dbl && ch == '\'' && !(line[i + 1] == '\'' && line[i + 2] == '\'')) { single = !single; continue; }
+            if (!single && ch == '"' && !(line[i + 1] == '"' && line[i + 2] == '"')) { dbl = !dbl; continue; }
+            if (single || dbl) continue;
+            if (ch == '#') break;
+
+            if ((ch == '\'' || ch == '"') && line[i + 1] == ch && line[i + 2] == ch)
+            {
+                tripleQuote = ch;
+                i += 2;
+            }
+        }
     }
 
     private static string FormatBash(string code, int indentSize)
@@ -833,10 +997,10 @@ public static class CodeFormatterService
     {
         // YAML indentation is data structure. Never infer hierarchy from keys. Block scalars are
         // especially whitespace-sensitive, so only normalize their existing indentation levels.
-        var normalized = NormalizeIndentationSensitive(code, indentSize);
-        if (Regex.IsMatch(normalized, @"(?m):\s*[|>]([+-]?\d*)?\s*(?:#.*)?$"))
-            return normalized;
+        if (Regex.IsMatch(code, @"(?m):\s*[|>]([+-]?\d*)?\s*(?:#.*)?$"))
+            return PreserveWhitespaceSensitive(code);
 
+        var normalized = NormalizeIndentationSensitive(code, indentSize);
         var lines = normalized.Split('\n');
         for (var i = 0; i < lines.Length; i++)
         {

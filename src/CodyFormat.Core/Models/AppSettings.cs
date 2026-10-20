@@ -17,4 +17,5 @@ public sealed class AppSettings
     public string FontFamily { get; set; } = "Cascadia Mono";
     public double FontSize { get; set; } = 14;
     public string Profile { get; set; } = "Custom";
+    public bool UseEditorConfig { get; set; } = true;
 }

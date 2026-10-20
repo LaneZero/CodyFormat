@@ -18,7 +18,11 @@ public partial class MainWindow : Window
     private bool _applyingProfile;
     private bool _suspendRefresh;
     private string? _currentFileName;
+    private string? _currentFilePath;
     private string? _currentFileLanguageHint;
+    private EditorConfigSettings _currentEditorConfig = new();
+    private FormattingProfileV2? _projectProfile;
+    private string _activeProfileIndentStyle = "space";
 
     private static readonly Dictionary<string, string> Backgrounds = new()
     {
@@ -41,7 +45,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         Title = $"{AppInfo.ProductName} v{AppInfo.Version}";
-        PlatformBadgeText.Text = $"● 100% Offline  •  {PlatformInfo.Name}";
+        PlatformBadgeText.Text = $"● Local Processing  •  {PlatformInfo.Name}";
         InitializeControls();
         LoadSettings();
         InputBox.Text = string.Empty;
@@ -63,8 +67,8 @@ public partial class MainWindow : Window
         LanguageBox.ItemsSource = LanguageCatalog.Languages;
         ThemeBox.ItemsSource = new[] { "Dark", "Light" };
         BackgroundBox.ItemsSource = Backgrounds.Keys.ToArray();
-        IndentBox.ItemsSource = new[] { 2, 4 };
-        ProfileBox.ItemsSource = FormattingProfileService.Profiles.Select(x => x.Name).ToArray();
+        IndentBox.ItemsSource = Enumerable.Range(1, 16).ToArray();
+        RefreshProfileList();
         FontBox.ItemsSource = CodeFonts;
         FontSizeBox.ItemsSource = new double[] { 10, 11, 12, 13, 14, 15, 16, 18, 20, 22 };
 
@@ -80,6 +84,7 @@ public partial class MainWindow : Window
         BorderBox.IsChecked = true;
         FormatOnOutputBox.IsChecked = false;
         PreviewBeforeApplyBox.IsChecked = true;
+        EditorConfigBox.IsChecked = true;
     }
 
     private void LoadSettings()
@@ -98,6 +103,7 @@ public partial class MainWindow : Window
         BorderBox.IsChecked = settings.Border;
         FormatOnOutputBox.IsChecked = settings.FormatBeforeOutput;
         PreviewBeforeApplyBox.IsChecked = settings.PreviewBeforeApply;
+        EditorConfigBox.IsChecked = settings.UseEditorConfig;
     }
 
     protected override void OnClosed(EventArgs e)
@@ -115,7 +121,8 @@ public partial class MainWindow : Window
             PreviewBeforeApply = PreviewBeforeApplyBox.IsChecked == true,
             FontFamily = CurrentFontFamily,
             FontSize = CurrentFontSize,
-            Profile = ProfileBox.SelectedItem?.ToString() ?? "Custom"
+            Profile = ProfileBox.SelectedItem?.ToString() ?? "Custom",
+            UseEditorConfig = EditorConfigBox.IsChecked == true
         });
         base.OnClosed(e);
     }
@@ -170,9 +177,20 @@ public partial class MainWindow : Window
     private void ProfileSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (_initializing || _applyingProfile || _suspendRefresh) return;
-        var profile = FormattingProfileService.Get(ProfileBox.SelectedItem?.ToString());
-        if (profile is null || profile.Name == "Custom") return;
-        ApplyProfile(profile);
+        var profile = ResolveProfile(ProfileBox.SelectedItem?.ToString());
+        if (profile is null) return;
+        if (profile.Name == "Custom")
+        {
+            _activeProfileIndentStyle = "space";
+            return;
+        }
+        ApplyProfileV2(profile);
+    }
+
+    private void ApplyProfileV2(FormattingProfileV2 profile)
+    {
+        _activeProfileIndentStyle = profile.Formatting.IndentStyle;
+        ApplyProfile(FormattingProfileV2Service.ToLegacy(profile));
     }
 
     private void ApplyProfile(FormattingProfile profile)
@@ -237,8 +255,11 @@ public partial class MainWindow : Window
         DetectedLanguageText.Text = LanguageBox.SelectedItem?.ToString() == "Auto Detect" ? $"Detected: {language}" : language;
         InputMetaText.Text = $"{CountLines(InputBox.Text)} lines  •  {(InputBox.Text?.Length ?? 0):N0} chars";
         var backgroundName = NoBackgroundBox.IsChecked == true ? "None" : BackgroundBox.SelectedItem?.ToString() ?? "Theme Default";
+        var previewPolicy = GetEffectiveFormattingPolicy();
+        var previewIndent = previewPolicy.EffectiveIndentSize(IndentSize);
+        var previewIndentStyle = previewPolicy.IndentStyle == "tab" ? "tabs" : "spaces";
         PreviewModeText.Text = FormatOnOutputBox.IsChecked == true
-            ? $"{theme.Name}  •  {backgroundName}  •  {IndentSize} spaces  •  formatted"
+            ? $"{theme.Name}  •  {backgroundName}  •  {previewIndent} {previewIndentStyle}  •  formatted"
             : $"{theme.Name}  •  {backgroundName}";
 
         PreviewPanel.Children.Clear();
@@ -266,7 +287,7 @@ public partial class MainWindow : Window
 
             foreach (var token in _highlighter.HighlightLine(lines[i], language))
             {
-                block.Inlines!.Add(new Run(token.Text.Replace("\t", new string(' ', IndentSize)))
+                block.Inlines!.Add(new Run(token.Text.Replace("\t", new string(' ', previewIndent)))
                 {
                     Foreground = Brush(RichCodeExportService.ColorFor(token.Kind, theme, language))
                 });
@@ -301,9 +322,12 @@ public partial class MainWindow : Window
         warning = null;
         var source = InputBox.Text ?? string.Empty;
         if (FormatOnOutputBox.IsChecked != true) return source;
-        var result = CodeFormatterService.Format(source, language, IndentSize);
+        var policy = GetEffectiveFormattingPolicy();
+        var indent = policy.EffectiveIndentSize(IndentSize);
+        var result = CodeFormatterService.Format(source, language, indent);
         warning = result.Warning;
-        return result.Code;
+        return FormattingPolicyService.Apply(
+            result.Code, policy, indent, FormattingPolicyService.DetectNewLine(source), documentRules: true);
     }
 
     private async void FormatDocumentClick(object? sender, RoutedEventArgs e) => await FormatCurrentCodeAsync(false);
@@ -328,7 +352,9 @@ public partial class MainWindow : Window
         var start = Math.Min(InputBox.SelectionStart, InputBox.SelectionEnd);
         var end = Math.Max(InputBox.SelectionStart, InputBox.SelectionEnd);
         var original = selectionOnly ? InputBox.SelectedText ?? string.Empty : InputBox.Text ?? string.Empty;
-        var result = CodeFormatterService.Format(original, language, IndentSize);
+        var policy = GetEffectiveFormattingPolicy();
+        var effectiveIndent = policy.EffectiveIndentSize(IndentSize);
+        var result = CodeFormatterService.Format(original, language, effectiveIndent);
 
         if (result.Warning is not null)
         {
@@ -337,7 +363,9 @@ public partial class MainWindow : Window
             return;
         }
 
-        var formatted = selectionOnly ? PreserveSelectionBaseIndent(result.Code, start) : result.Code;
+        var policyFormatted = FormattingPolicyService.Apply(
+            result.Code, policy, effectiveIndent, FormattingPolicyService.DetectNewLine(InputBox.Text ?? string.Empty), !selectionOnly);
+        var formatted = selectionOnly ? PreserveSelectionBaseIndent(policyFormatted, start) : policyFormatted;
         if (string.Equals(original, formatted, StringComparison.Ordinal))
         {
             SetStatus($"✓ {language} code is already formatted");
@@ -374,7 +402,7 @@ public partial class MainWindow : Window
         InputBox.Focus();
         SetStatus(selectionOnly
             ? $"✓ Formatted selection as {language}  •  Ctrl/Cmd+Z to undo"
-            : $"✓ Formatted {language}  •  {IndentSize}-space indentation  •  Ctrl/Cmd+Z to undo");
+            : $"✓ Formatted {language}  •  {effectiveIndent}-{(policy.IndentStyle == "tab" ? "tab" : "space")} policy  •  Ctrl/Cmd+Z to undo");
     }
 
     private string PreserveSelectionBaseIndent(string formatted, int selectionStart)
@@ -475,13 +503,32 @@ public partial class MainWindow : Window
         }
 
         _currentFileName = file.Name;
+        _currentFilePath = file.Path.IsFile ? file.Path.LocalPath : null;
         _currentFileLanguageHint = result.LanguageHint;
+        _projectProfile = null;
+
+        if (_currentFilePath is not null &&
+            FormattingProfileV2Service.TryFindProjectProfile(_currentFilePath, out var projectProfile, out _, out _))
+        {
+            _projectProfile = projectProfile;
+            RefreshProfileList();
+            if (projectProfile is not null)
+            {
+                SelectOrDefault(ProfileBox, projectProfile.Name, "Custom");
+                ApplyProfileV2(projectProfile);
+            }
+        }
+
+        RefreshEditorConfig();
         InputBox.Text = result.Text;
         InputBox.CaretIndex = 0;
         CurrentFileText.Text = file.Name;
         Title = $"{file.Name} — {AppInfo.ProductName} v{AppInfo.Version}";
         RefreshPreview();
-        SetStatus($"✓ Opened {file.Name}  •  language hint: {result.LanguageHint}  •  local file only");
+        var configStatus = _currentEditorConfig.SourceFiles.Count > 0
+            ? $"  •  .editorconfig: {_currentEditorConfig.SourceFiles.Count}"
+            : string.Empty;
+        SetStatus($"✓ Opened {file.Name}  •  language hint: {result.LanguageHint}{configStatus}  •  local file only");
     }
 
     private async void CopyWordClick(object? sender, RoutedEventArgs e)
@@ -494,14 +541,15 @@ public partial class MainWindow : Window
             var theme = ThemeService.Get(ThemeBox.SelectedItem?.ToString() ?? "Dark");
             var code = GetOutputCode(language, out var warning);
             var background = ResolveBackground(theme);
+            var exportIndent = GetEffectiveFormattingPolicy().EffectiveIndentSize(IndentSize);
             var fragment = RichCodeExportService.BuildHtmlFragment(
                 code, language, theme, background,
                 LineNumbersBox.IsChecked == true, BorderBox.IsChecked == true,
-                IndentSize, CurrentFontFamily, CurrentFontSize, _highlighter);
+                exportIndent, CurrentFontFamily, CurrentFontSize, _highlighter);
             var rtf = RichCodeExportService.BuildRtf(
                 code, language, theme, background,
                 LineNumbersBox.IsChecked == true, BorderBox.IsChecked == true,
-                IndentSize, CurrentFontFamily, CurrentFontSize, _highlighter);
+                exportIndent, CurrentFontFamily, CurrentFontSize, _highlighter);
             var clipboardBackend = await PlatformClipboardService.CopyRichAsync(clipboard, code, fragment, rtf);
             SetStatus(warning ?? $"✓ Copied rich code for Word  •  {language}  •  {clipboardBackend}");
         }
@@ -571,15 +619,61 @@ public partial class MainWindow : Window
             var language = ResolveLanguage();
             var theme = ThemeService.Get(ThemeBox.SelectedItem?.ToString() ?? "Dark");
             var code = GetOutputCode(language, out var warning);
+            var exportIndent = GetEffectiveFormattingPolicy().EffectiveIndentSize(IndentSize);
             DocxExportService.Export(stream, code, language, theme, ResolveBackground(theme),
                 LineNumbersBox.IsChecked == true, BorderBox.IsChecked == true,
-                IndentSize, CurrentFontFamily, CurrentFontSize, _highlighter);
+                exportIndent, CurrentFontFamily, CurrentFontSize, _highlighter);
             await stream.FlushAsync();
             SetStatus(warning ?? $"✓ Exported: {file.Name}");
         }
         catch (Exception ex)
         {
             await DialogService.ShowAsync(this, "DOCX export failed", ex.Message);
+        }
+    }
+
+    private async void CheckUpdatesClick(object? sender, RoutedEventArgs e)
+    {
+        CheckUpdatesButton.IsEnabled = false;
+        SetStatus("Checking GitHub Releases for updates...");
+
+        try
+        {
+            var result = await UpdateCheckService.CheckAsync();
+            SetStatus(result.Message);
+
+            if (!result.Succeeded)
+            {
+                await DialogService.ShowAsync(
+                    this,
+                    "Check for Updates",
+                    $"{result.Message}\n\nCodyFormat does not check for updates automatically. Formatting remains fully offline.");
+                return;
+            }
+
+            if (result.UpdateAvailable)
+            {
+                var channel = result.LatestIsPrerelease ? "pre-release" : "release";
+                var open = await DialogService.ConfirmAsync(
+                    this,
+                    "Update Available",
+                    $"{result.Message}\n\nCurrent: v{result.CurrentVersion}\nLatest {channel}: v{result.LatestVersion}\n\nOpen the GitHub Release page?",
+                    "Open Release");
+
+                if (open && !BrowserLauncher.TryOpen(result.ReleaseUrl ?? AppInfo.GitHubReleasesUrl, out var error))
+                    await DialogService.ShowAsync(this, "CodyFormat", $"Could not open GitHub Releases.\n\n{error}");
+
+                return;
+            }
+
+            await DialogService.ShowAsync(
+                this,
+                "Check for Updates",
+                $"{result.Message}\n\nNo automatic background update checks are performed.");
+        }
+        finally
+        {
+            CheckUpdatesButton.IsEnabled = true;
         }
     }
 
@@ -597,11 +691,152 @@ public partial class MainWindow : Window
     private void PasteEditorClick(object? sender, RoutedEventArgs e) => InputBox.Paste();
     private void SelectAllEditorClick(object? sender, RoutedEventArgs e) { InputBox.SelectAll(); InputBox.Focus(); }
 
+    private EditorConfigSettings GetEffectiveFormattingPolicy()
+    {
+        var baseline = new EditorConfigSettings
+        {
+            IndentStyle = _activeProfileIndentStyle,
+            IndentSize = IndentSize
+        };
+        return EditorConfigBox.IsChecked == true
+            ? EditorConfigSettings.Merge(baseline, _currentEditorConfig)
+            : baseline;
+    }
+
+    private void RefreshEditorConfig()
+    {
+        _currentEditorConfig = EditorConfigBox.IsChecked == true && !string.IsNullOrWhiteSpace(_currentFilePath)
+            ? EditorConfigService.Resolve(_currentFilePath)
+            : new EditorConfigSettings();
+
+        // Do not mutate the user's visible/base indent selection here. The effective
+        // EditorConfig policy is applied at format time, so disabling EditorConfig cleanly
+        // returns to the selected profile/manual settings.
+    }
+
+    private void EditorConfigChanged(object? sender, RoutedEventArgs e)
+    {
+        if (_initializing) return;
+        RefreshEditorConfig();
+        RefreshPreview();
+        SetStatus(_currentEditorConfig.SourceFiles.Count > 0
+            ? $"✓ .editorconfig enabled  •  {_currentEditorConfig.SourceFiles.Count} file(s) resolved"
+            : EditorConfigBox.IsChecked == true ? "No .editorconfig found for the current local file" : ".editorconfig disabled");
+    }
+
+    private void RefreshProfileList()
+    {
+        var names = FormattingProfileV2Service.GetAvailableProfiles().Select(x => x.Name).ToList();
+        if (_projectProfile is not null && !names.Contains(_projectProfile.Name, StringComparer.OrdinalIgnoreCase))
+            names.Add(_projectProfile.Name);
+        ProfileBox.ItemsSource = names.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
+    private FormattingProfileV2? ResolveProfile(string? name)
+    {
+        if (_projectProfile is not null && _projectProfile.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+            return _projectProfile;
+        return FormattingProfileV2Service.Resolve(name);
+    }
+
+    private FormattingProfileV2 CurrentProfileV2()
+    {
+        var selected = ResolveProfile(ProfileBox.SelectedItem?.ToString());
+        if (selected is not null && selected.Name != "Custom")
+            return selected;
+
+        return new FormattingProfileV2
+        {
+            Name = "Custom",
+            Description = "Exported custom CodyFormat settings.",
+            Formatting = new ProfileFormattingOptions { IndentStyle = _activeProfileIndentStyle, IndentSize = IndentSize },
+            Appearance = new ProfileAppearanceOptions
+            {
+                Theme = ThemeBox.SelectedItem?.ToString() ?? "Dark",
+                Background = BackgroundBox.SelectedItem?.ToString() ?? "Theme Default",
+                NoBackground = NoBackgroundBox.IsChecked == true,
+                LineNumbers = LineNumbersBox.IsChecked == true,
+                Border = BorderBox.IsChecked == true,
+                FontFamily = CurrentFontFamily,
+                FontSize = CurrentFontSize
+            },
+            Output = new ProfileOutputOptions
+            {
+                FormatBeforeOutput = FormatOnOutputBox.IsChecked == true,
+                Target = "General"
+            }
+        };
+    }
+
+    private async void ImportProfileClick(object? sender, RoutedEventArgs e)
+    {
+        if (!StorageProvider.CanOpen) return;
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Import CodyFormat Profile v2",
+            AllowMultiple = false,
+            FileTypeFilter = new[]
+            {
+                new FilePickerFileType("CodyFormat profile") { Patterns = new[] { "*.codyprofile.json", "*.json" } },
+                FilePickerFileTypes.All
+            }
+        });
+        if (files.Count == 0) return;
+
+        try
+        {
+            await using var stream = await files[0].OpenReadAsync();
+            if (!FormattingProfileV2Service.TryLoad(stream, out var profile, out var error) || profile is null)
+            {
+                await DialogService.ShowAsync(this, "Import Profile", error);
+                return;
+            }
+
+            FormattingProfileV2Service.Import(profile);
+            RefreshProfileList();
+            SelectOrDefault(ProfileBox, profile.Name, "Custom");
+            ApplyProfileV2(profile);
+            SetStatus($"✓ Imported Profile v2: {profile.Name}");
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowAsync(this, "Import Profile", ex.Message);
+        }
+    }
+
+    private async void ExportProfileClick(object? sender, RoutedEventArgs e)
+    {
+        if (!StorageProvider.CanSave) return;
+        var profile = CurrentProfileV2();
+        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Export CodyFormat Profile v2",
+            SuggestedFileName = profile.Name.Replace(' ', '-') + ".codyprofile.json",
+            DefaultExtension = "json",
+            FileTypeChoices = new[] { new FilePickerFileType("CodyFormat profile") { Patterns = new[] { "*.codyprofile.json", "*.json" } } }
+        });
+        if (file is null) return;
+
+        try
+        {
+            await using var stream = await file.OpenWriteAsync();
+            await FormattingProfileV2Service.WriteAsync(stream, profile);
+            SetStatus($"✓ Exported Profile v2: {profile.Name}");
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowAsync(this, "Export Profile", ex.Message);
+        }
+    }
+
     private void ClearClick(object? sender, RoutedEventArgs e)
     {
         InputBox.Clear();
         _currentFileName = null;
+        _currentFilePath = null;
         _currentFileLanguageHint = null;
+        _currentEditorConfig = new EditorConfigSettings();
+        _projectProfile = null;
         CurrentFileText.Text = "Untitled";
         Title = $"{AppInfo.ProductName} v{AppInfo.Version}";
         InputBox.Focus();
