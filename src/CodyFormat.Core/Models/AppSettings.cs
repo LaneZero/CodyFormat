@@ -18,4 +18,5 @@ public sealed class AppSettings
     public double FontSize { get; set; } = 14;
     public string Profile { get; set; } = "Custom";
     public bool UseEditorConfig { get; set; } = true;
+    public bool UseNativeFormatters { get; set; }
 }

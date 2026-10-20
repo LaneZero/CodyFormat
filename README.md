@@ -6,7 +6,7 @@ CodyFormat processes source code locally. It does **not** upload your code, requ
 
 > **Current stable release:** `v0.6.0`
 >
-> **Current development build:** `v0.7.0-alpha.3` adds shared `.editorconfig` resolution and Profiles v2 on top of the validated CLI/batch formatter work. It does **not** replace the v0.6.0 Stable release.
+> **Current development build:** `v0.7.0-beta.1` adds opt-in native formatter providers on top of the validated CLI, batch, `.editorconfig`, and Profiles v2 work. It does **not** replace the v0.6.0 Stable release.
 >
 > Runtime validation completed on **Windows x64**, **Ubuntu Linux x64**, and **macOS Apple Silicon on a real Apple M1 Mac**. Windows ARM64, Linux ARM64, and macOS Intel packages can also be published, but remain architecture-specific validation targets until they receive equivalent real-hardware coverage.
 
@@ -355,7 +355,7 @@ DOCX generation is independent of the operating-system clipboard and is the reco
 
 ---
 
-## Development CLI — v0.7.0-alpha.3
+## Development CLI — v0.7.0-beta.1
 
 The v0.7 development line introduces `CodyFormat.Cli`, which reuses the same `CodyFormat.Core` formatter used by the desktop application.
 
@@ -369,7 +369,7 @@ codyformat query.sql --language sql --indent 4
 cat script.py | codyformat --stdin --language python
 ```
 
-`--check` never writes. `--write` uses a same-directory temporary file and replacement path so formatter failures do not truncate the original source. See [`docs/CLI.md`](docs/CLI.md) for the alpha contract and exit codes.
+`--check` never writes. `--write` uses a same-directory temporary file and replacement path so formatter failures do not truncate the original source. Beta.1 also adds `--native` and `--native-status`; external formatters are opt-in only and always have a built-in fallback. See [`docs/CLI.md`](docs/CLI.md) and [`docs/NATIVE-FORMATTERS.md`](docs/NATIVE-FORMATTERS.md).
 
 The same development build also introduces a formatter regression matrix for all selectable languages. Python is the priority regression target. See [`docs/FORMATTER-QUALITY.md`](docs/FORMATTER-QUALITY.md).
 

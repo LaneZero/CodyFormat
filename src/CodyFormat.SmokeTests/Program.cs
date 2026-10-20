@@ -122,6 +122,7 @@ Check(VersionComparisonService.IsNewer("0.7.0-beta.1", "0.7.0-alpha.9"), "Versio
 Check(VersionComparisonService.IsNewer("0.7.0-rc.1", "0.7.0-beta.9"), "Version compare: rc > beta");
 Check(VersionComparisonService.IsNewer("0.7.0", "0.7.0-rc.9"), "Version compare: stable > rc");
 Check(VersionComparisonService.Compare("v0.7.0-alpha.3", "0.7.0-alpha.3") == 0, "Version compare: optional v prefix");
+Check(VersionComparisonService.IsNewer("0.7.0-beta.1", "0.7.0-alpha.3"), "Version compare: beta.1 > alpha.3");
 
 // v0.7.0-alpha.2 batch/folder formatting gate.
 Check(GlobMatcher.IsMatch("src/sample.py", "**/*.py"), "Batch glob recursive include");
@@ -261,6 +262,31 @@ try
 finally
 {
     if (Directory.Exists(projectRoot)) Directory.Delete(projectRoot, true);
+}
+
+
+// v0.7.0-beta.1 native formatter provider gate. No external formatter is required.
+Check(NativeFormatterService.Descriptors.Any(x => x.Id == "black" && x.Languages.Contains("Python")), "Native provider allowlist: Black/Python");
+Check(NativeFormatterService.Descriptors.Any(x => x.Id == "prettier" && x.Languages.Contains("TypeScript")), "Native provider allowlist: Prettier/TypeScript");
+Check(!NativeFormatterService.IsSupportedLanguage("C#"), "Native provider safety: C# does not invoke project-scoped dotnet format");
+
+var savedPath = Environment.GetEnvironmentVariable("PATH");
+var emptyNativePath = Path.Combine(Path.GetTempPath(), "codyformat-native-empty-" + Guid.NewGuid().ToString("N"));
+Directory.CreateDirectory(emptyNativePath);
+try
+{
+    Environment.SetEnvironmentVariable("PATH", emptyNativePath);
+    var nativeFallback = NativeFormatterService.FormatAsync(
+        "def f(a,b):\n  return a+b\n", "Python", 4, "space", useNative: true).GetAwaiter().GetResult();
+    Check(!nativeFallback.UsedNative, "Native provider missing => built-in fallback");
+    Check(nativeFallback.Error is null, "Native fallback remains successful");
+    Check(nativeFallback.Notice?.Contains("not found", StringComparison.OrdinalIgnoreCase) == true, "Native fallback reports provider absence");
+    Check(nativeFallback.Code.Contains("def f(a, b):", StringComparison.Ordinal), "Native fallback formatted Python with built-in engine");
+}
+finally
+{
+    Environment.SetEnvironmentVariable("PATH", savedPath);
+    Directory.Delete(emptyNativePath, true);
 }
 
 var theme = ThemeService.Get("Dark");

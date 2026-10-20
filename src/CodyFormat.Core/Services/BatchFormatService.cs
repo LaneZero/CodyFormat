@@ -28,6 +28,7 @@ public static class BatchFormatService
         var unchanged = 0;
         var failed = 0;
         var written = 0;
+        var nativeUsed = 0;
 
         foreach (var filePath in EnumerateFiles(root, request, cancellationToken))
         {
@@ -57,30 +58,41 @@ public static class BatchFormatService
                     policy = policy with { IndentSize = request.IndentSize };
 
                 var effectiveIndent = policy.EffectiveIndentSize(request.IndentSize);
-                var formattedResult = CodeFormatterService.Format(doc.Text, language, effectiveIndent);
+                var execution = await NativeFormatterService.FormatAsync(
+                    doc.Text,
+                    language,
+                    effectiveIndent,
+                    policy.IndentStyle ?? request.IndentStyle,
+                    request.UseNativeFormatters,
+                    cancellationToken);
 
-                if (!string.IsNullOrWhiteSpace(formattedResult.Warning))
+                if (!string.IsNullOrWhiteSpace(execution.Error))
                 {
                     failed++;
-                    results.Add(new BatchFileResult(relative, BatchFileStatus.Failed, formattedResult.Warning));
+                    results.Add(new BatchFileResult(relative, BatchFileStatus.Failed, execution.Error));
                     continue;
                 }
 
+                if (execution.UsedNative) nativeUsed++;
+                var providerMessage = execution.UsedNative
+                    ? $"native: {execution.ProviderId}"
+                    : execution.Notice;
+
                 var formatted = FormattingPolicyService.Apply(
-                    formattedResult.Code, policy, effectiveIndent, doc.NewLine, documentRules: true);
+                    execution.Code, policy, effectiveIndent, doc.NewLine, documentRules: true);
                 var isChanged = !string.Equals(doc.Text, formatted, StringComparison.Ordinal);
 
                 if (!isChanged)
                 {
                     unchanged++;
-                    results.Add(new BatchFileResult(relative, BatchFileStatus.Unchanged));
+                    results.Add(new BatchFileResult(relative, BatchFileStatus.Unchanged, providerMessage));
                     continue;
                 }
 
                 changed++;
                 if (!request.Write)
                 {
-                    results.Add(new BatchFileResult(relative, BatchFileStatus.Changed));
+                    results.Add(new BatchFileResult(relative, BatchFileStatus.Changed, providerMessage));
                     continue;
                 }
 
@@ -88,7 +100,7 @@ public static class BatchFormatService
                     filePath, formatted, doc, request.Backup, cancellationToken);
 
                 written++;
-                results.Add(new BatchFileResult(relative, BatchFileStatus.Written, BackupPath: backup));
+                results.Add(new BatchFileResult(relative, BatchFileStatus.Written, providerMessage, BackupPath: backup));
             }
             catch (OperationCanceledException)
             {
@@ -102,7 +114,7 @@ public static class BatchFormatService
             }
         }
 
-        return new BatchFormatSummary(scanned, supported, changed, unchanged, failed, written, results);
+        return new BatchFormatSummary(scanned, supported, changed, unchanged, failed, written, results, nativeUsed);
     }
 
     private static IEnumerable<string> EnumerateFiles(

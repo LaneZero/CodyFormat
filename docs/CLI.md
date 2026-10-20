@@ -1,4 +1,4 @@
-# CodyFormat CLI — v0.7.0-alpha.3
+# CodyFormat CLI — v0.7.0-beta.1
 
 The first CLI build reuses `CodyFormat.Core`; it does not contain a second formatter implementation.
 
@@ -73,3 +73,14 @@ codyformat file.py --profile ./team.codyprofile.json
 ```
 
 `--profile` accepts a built-in/user profile name or a profile JSON path. Explicit `--indent` overrides the resolved `.editorconfig` indentation size.
+
+
+## Native formatter providers (Beta.1)
+
+`--native` explicitly enables allowlisted local formatter providers with built-in fallback. `--native-status` reports discovery status without formatting a file. CodyFormat never installs providers automatically and does not use shell command concatenation.
+
+```bash
+codyformat --native-status
+codyformat app.py --native --check
+codyformat ./src --recursive --native --write
+```

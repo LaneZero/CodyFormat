@@ -135,7 +135,7 @@ The update checker is manual-only. Normal CodyFormat formatting workflows remain
 
 ### v0.7.0-alpha.3 — .editorconfig + Profiles v2
 
-Status: **active development phase**
+Status: **completed / validated pre-release phase**
 
 `.editorconfig` initial support:
 
@@ -164,9 +164,11 @@ Profiles v2:
 
 ### v0.7.0-beta.1 — Native Formatter Providers
 
+Status: **active development phase**
+
 Optional local formatter providers:
 
-- `dotnet format`
+- C# remains on the built-in formatter in Beta.1; `dotnet format` is not invoked against arbitrary projects because it is project-scoped and can modify multiple files
 - `clang-format`
 - `rustfmt`
 - `gofmt`

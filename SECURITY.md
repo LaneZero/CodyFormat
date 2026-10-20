@@ -45,3 +45,7 @@ Future external formatter-provider integration must remain explicit and local. C
 ## Manual update checks
 
 CodyFormat does not perform automatic or background update checks. When the user explicitly invokes **Check Updates**, CodyFormat sends an HTTPS GET request to the public GitHub Releases API for the CodyFormat repository. Source code, editor contents, file paths, clipboard contents, profiles, and formatting inputs are not included in that request. Formatting and export features do not depend on this network request.
+
+## Native formatter providers (v0.7 beta)
+
+Native formatter execution is disabled by default and is treated as local external-process execution. CodyFormat uses a fixed provider allowlist, resolves executables only from absolute PATH entries, does not use a shell, does not accept executable commands from Profiles v2, applies a 12-second timeout, and falls back to the built-in formatter when a provider is missing or fails. CodyFormat never downloads or installs native formatters automatically.

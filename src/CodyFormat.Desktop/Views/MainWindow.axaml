@@ -22,7 +22,7 @@
           <StackPanel Orientation="Horizontal">
             <TextBlock Text="CodyFormat" FontSize="25" FontWeight="SemiBold"/>
             <Border Background="{DynamicResource BadgeBrush}" CornerRadius="9" Padding="7,3" Margin="9,3,0,0">
-              <TextBlock Text="v0.7.0-alpha.3" Foreground="{DynamicResource BadgeTextBrush}" FontSize="10" FontWeight="SemiBold"/>
+              <TextBlock Text="v0.7.0-beta.1" Foreground="{DynamicResource BadgeTextBrush}" FontSize="10" FontWeight="SemiBold"/>
             </Border>
           </StackPanel>
           <TextBlock Text="Offline code formatting across Windows, macOS and Linux."
@@ -61,6 +61,8 @@
           </WrapPanel>
           <WrapPanel>
             <CheckBox x:Name="EditorConfigBox" Content=".editorconfig" IsCheckedChanged="EditorConfigChanged" ToolTip.Tip="Apply project .editorconfig rules when a local file is open"/>
+            <CheckBox x:Name="NativeFormatterBox" Content="Native formatter" IsCheckedChanged="NativeFormatterChanged" ToolTip.Tip="Opt in to allowlisted external formatters only when you explicitly format code"/>
+            <Button Content="Native Status" Click="NativeStatusClick" ToolTip.Tip="Show detected allowlisted formatter executables"/>
             <TextBlock Text="Indent" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{DynamicResource MutedTextBrush}"/>
             <ComboBox x:Name="IndentBox" MinWidth="70" SelectionChanged="OptionsSelectionChanged"/>
             <TextBlock Text="Font" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{DynamicResource MutedTextBrush}"/>

@@ -4,6 +4,25 @@ All notable changes to CodyFormat are documented in this file.
 
 CodyFormat v0.6.0 is the first stable cross-platform Avalonia baseline for Windows, Linux, and macOS. The earlier preview entries are preserved below as migration history.
 
+## [0.7.0-beta.1] - 2026-10-20
+
+### Added
+
+- Opt-in native formatter provider layer shared by CLI and desktop explicit format actions.
+- Allowlisted providers for Black, Prettier, clang-format, rustfmt, and gofmt.
+- CLI `--native` and `--native-status`.
+- GUI Native formatter toggle and provider-status diagnostics.
+- 12-second provider timeout, cancellation, stdout/stderr capture, and built-in fallback.
+
+### Safety
+
+- Native formatter execution is disabled by default.
+- No formatter is downloaded or installed automatically.
+- No shell is used and profiles cannot supply commands or executable paths.
+- Executables are resolved only from absolute PATH entries; relative/current-directory PATH entries are ignored.
+- Live preview and export do not spawn native tools automatically.
+- C# stays on the built-in formatter in Beta.1 rather than invoking project-scoped `dotnet format`.
+
 ## [0.7.0-alpha.3] - 2026-10-20
 
 ### Added

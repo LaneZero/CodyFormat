@@ -3,7 +3,7 @@ namespace CodyFormat;
 public static class AppInfo
 {
     public const string ProductName = "CodyFormat";
-    public const string Version = "0.7.0-alpha.3";
+    public const string Version = "0.7.0-beta.1";
     public const string Developer = "LaneZeroO";
     public const string GitHubUrl = "https://github.com/LaneZero/CodyFormat";
     public const string GitHubReleasesUrl = "https://github.com/LaneZero/CodyFormat/releases";

@@ -12,7 +12,8 @@ public sealed record BatchFormatRequest(
     bool UseEditorConfig,
     string? LanguageOverride,
     IReadOnlyList<string> IncludePatterns,
-    IReadOnlyList<string> ExcludePatterns);
+    IReadOnlyList<string> ExcludePatterns,
+    bool UseNativeFormatters = false);
 
 public enum BatchFileStatus
 {
@@ -35,4 +36,5 @@ public sealed record BatchFormatSummary(
     int Unchanged,
     int Failed,
     int Written,
-    IReadOnlyList<BatchFileResult> Files);
+    IReadOnlyList<BatchFileResult> Files,
+    int NativeUsed = 0);

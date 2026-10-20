@@ -85,6 +85,7 @@ public partial class MainWindow : Window
         FormatOnOutputBox.IsChecked = false;
         PreviewBeforeApplyBox.IsChecked = true;
         EditorConfigBox.IsChecked = true;
+        NativeFormatterBox.IsChecked = false;
     }
 
     private void LoadSettings()
@@ -104,6 +105,7 @@ public partial class MainWindow : Window
         FormatOnOutputBox.IsChecked = settings.FormatBeforeOutput;
         PreviewBeforeApplyBox.IsChecked = settings.PreviewBeforeApply;
         EditorConfigBox.IsChecked = settings.UseEditorConfig;
+        NativeFormatterBox.IsChecked = settings.UseNativeFormatters;
     }
 
     protected override void OnClosed(EventArgs e)
@@ -122,7 +124,8 @@ public partial class MainWindow : Window
             FontFamily = CurrentFontFamily,
             FontSize = CurrentFontSize,
             Profile = ProfileBox.SelectedItem?.ToString() ?? "Custom",
-            UseEditorConfig = EditorConfigBox.IsChecked == true
+            UseEditorConfig = EditorConfigBox.IsChecked == true,
+            UseNativeFormatters = NativeFormatterBox.IsChecked == true
         });
         base.OnClosed(e);
     }
@@ -354,21 +357,27 @@ public partial class MainWindow : Window
         var original = selectionOnly ? InputBox.SelectedText ?? string.Empty : InputBox.Text ?? string.Empty;
         var policy = GetEffectiveFormattingPolicy();
         var effectiveIndent = policy.EffectiveIndentSize(IndentSize);
-        var result = CodeFormatterService.Format(original, language, effectiveIndent);
+        var execution = await NativeFormatterService.FormatAsync(
+            original,
+            language,
+            effectiveIndent,
+            policy.IndentStyle ?? _activeProfileIndentStyle,
+            NativeFormatterBox.IsChecked == true);
 
-        if (result.Warning is not null)
+        if (execution.Error is not null)
         {
-            SetStatus(result.Warning);
-            await DialogService.ShowAsync(this, "CodyFormat Formatter", result.Warning);
+            SetStatus(execution.Error);
+            await DialogService.ShowAsync(this, "CodyFormat Formatter", execution.Error);
             return;
         }
 
         var policyFormatted = FormattingPolicyService.Apply(
-            result.Code, policy, effectiveIndent, FormattingPolicyService.DetectNewLine(InputBox.Text ?? string.Empty), !selectionOnly);
+            execution.Code, policy, effectiveIndent, FormattingPolicyService.DetectNewLine(InputBox.Text ?? string.Empty), !selectionOnly);
         var formatted = selectionOnly ? PreserveSelectionBaseIndent(policyFormatted, start) : policyFormatted;
         if (string.Equals(original, formatted, StringComparison.Ordinal))
         {
-            SetStatus($"✓ {language} code is already formatted");
+            var engine = execution.UsedNative ? $"native: {execution.ProviderId}" : "built-in";
+            SetStatus(execution.Notice ?? $"✓ {language} code is already formatted  •  {engine}");
             return;
         }
 
@@ -400,9 +409,11 @@ public partial class MainWindow : Window
         }
 
         InputBox.Focus();
+        var engineText = execution.UsedNative ? $"native: {execution.ProviderId}" : "built-in";
+        var fallbackText = string.IsNullOrWhiteSpace(execution.Notice) ? string.Empty : $"  •  fallback: {execution.Notice}";
         SetStatus(selectionOnly
-            ? $"✓ Formatted selection as {language}  •  Ctrl/Cmd+Z to undo"
-            : $"✓ Formatted {language}  •  {effectiveIndent}-{(policy.IndentStyle == "tab" ? "tab" : "space")} policy  •  Ctrl/Cmd+Z to undo");
+            ? $"✓ Formatted selection as {language}  •  {engineText}  •  Ctrl/Cmd+Z to undo{fallbackText}"
+            : $"✓ Formatted {language}  •  {engineText}  •  {effectiveIndent}-{(policy.IndentStyle == "tab" ? "tab" : "space")} policy  •  Ctrl/Cmd+Z to undo{fallbackText}");
     }
 
     private string PreserveSelectionBaseIndent(string formatted, int selectionStart)
@@ -722,6 +733,26 @@ public partial class MainWindow : Window
         SetStatus(_currentEditorConfig.SourceFiles.Count > 0
             ? $"✓ .editorconfig enabled  •  {_currentEditorConfig.SourceFiles.Count} file(s) resolved"
             : EditorConfigBox.IsChecked == true ? "No .editorconfig found for the current local file" : ".editorconfig disabled");
+    }
+
+    private void NativeFormatterChanged(object? sender, RoutedEventArgs e)
+    {
+        if (_initializing) return;
+        SetStatus(NativeFormatterBox.IsChecked == true
+            ? "Native formatter opt-in enabled for explicit Format actions only; live preview/export remain built-in and offline."
+            : "Native formatter opt-in disabled; CodyFormat built-in formatter will be used.");
+    }
+
+    private async void NativeStatusClick(object? sender, RoutedEventArgs e)
+    {
+        var statuses = NativeFormatterService.GetStatuses();
+        var lines = statuses.Select(status =>
+            $"{status.DisplayName}: {(status.Available ? "Available" : "Not found")}\n  {string.Join(", ", status.Languages)}" +
+            (status.Available ? $"\n  {status.ExecutablePath}" : string.Empty));
+        await DialogService.ShowAsync(
+            this,
+            "Native Formatter Status",
+            "Native formatters are opt-in, never auto-installed, and launched without a shell.\n\n" + string.Join("\n\n", lines));
     }
 
     private void RefreshProfileList()

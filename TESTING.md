@@ -3,7 +3,7 @@
 This document records the validation state of the first stable cross-platform Avalonia baseline.
 
 
-## Current development gate — v0.7.0-alpha.3
+## Current development gate — v0.7.0-beta.1
 
 Active scope: `.editorconfig` + Profiles v2. Alpha.1 formatter and Alpha.2 batch tests remain mandatory.
 
@@ -34,13 +34,13 @@ Required checks:
 Windows:
 
 ```powershell
-.\scripts\validate-alpha3.ps1
+.\scripts\validate-beta1.ps1
 ```
 
 Linux/macOS:
 
 ```bash
-./scripts/validate-alpha3.sh
+./scripts/validate-beta1.sh
 ```
 
 ---

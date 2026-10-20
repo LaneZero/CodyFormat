@@ -29,6 +29,7 @@ internal static class Program
         var options = parse.Options!;
         if (options.ShowHelp) { PrintHelp(); return Success; }
         if (options.ShowVersion) { Console.WriteLine(AppInfo.Version); return Success; }
+        if (options.ShowNativeStatus) { PrintNativeStatus(); return Success; }
 
         try
         {
@@ -108,15 +109,22 @@ internal static class Program
             policy = policy with { IndentSize = options.IndentSize };
 
         var effectiveIndent = policy.EffectiveIndentSize(baseFormatting.IndentSize);
-        var result = CodeFormatterService.Format(source, language, effectiveIndent);
-        if (!string.IsNullOrWhiteSpace(result.Warning))
+        var execution = await NativeFormatterService.FormatAsync(
+            source,
+            language,
+            effectiveIndent,
+            policy.IndentStyle ?? baseFormatting.IndentStyle,
+            options.UseNativeFormatters);
+        if (!string.IsNullOrWhiteSpace(execution.Error))
         {
-            Console.Error.WriteLine(result.Warning);
+            Console.Error.WriteLine(execution.Error);
             return FormatError;
         }
+        if (!options.Quiet && !string.IsNullOrWhiteSpace(execution.Notice))
+            Console.Error.WriteLine(execution.Notice);
 
         var formatted = FormattingPolicyService.Apply(
-            result.Code,
+            execution.Code,
             policy,
             effectiveIndent,
             metadata?.NewLine ?? "\n",
@@ -128,7 +136,8 @@ internal static class Program
             if (!options.Quiet)
             {
                 var configText = policy.SourceFiles.Count > 0 ? $" • editorconfig={policy.SourceFiles.Count}" : string.Empty;
-                Console.Error.WriteLine(changed ? $"Would format ({language}){configText}" : $"Already formatted ({language}){configText}");
+                var engineText = execution.UsedNative ? $" • native={execution.ProviderId}" : string.Empty;
+                Console.Error.WriteLine(changed ? $"Would format ({language}){configText}{engineText}" : $"Already formatted ({language}){configText}{engineText}");
             }
             return changed ? ChangesRequired : Success;
         }
@@ -144,7 +153,7 @@ internal static class Program
 
             if (!options.Quiet)
             {
-                Console.Error.WriteLine($"Formatted {filePath} ({language})");
+                Console.Error.WriteLine($"Formatted {filePath} ({language}){(execution.UsedNative ? $" • native={execution.ProviderId}" : string.Empty)}");
                 if (backup is not null) Console.Error.WriteLine($"Backup: {backup}");
             }
             return Success;
@@ -179,7 +188,8 @@ internal static class Program
                 UseEditorConfig: !options.NoEditorConfig,
                 LanguageOverride: options.Language,
                 IncludePatterns: options.IncludePatterns,
-                ExcludePatterns: options.ExcludePatterns);
+                ExcludePatterns: options.ExcludePatterns,
+                UseNativeFormatters: options.UseNativeFormatters);
 
             var summary = await BatchFormatService.RunAsync(request, cts.Token);
             if (!options.Quiet)
@@ -199,6 +209,7 @@ internal static class Program
                 Console.Error.WriteLine($"Unchanged: {summary.Unchanged}");
                 Console.Error.WriteLine($"Failed:    {summary.Failed}");
                 Console.Error.WriteLine($"Written:   {summary.Written}");
+                if (options.UseNativeFormatters) Console.Error.WriteLine($"Native:    {summary.NativeUsed}");
             }
 
             if (summary.Failed > 0) return FormatError;
@@ -258,6 +269,7 @@ internal static class Program
         Console.WriteLine("  --indent <1-16>     Explicit indentation size (overrides profile/.editorconfig size)");
         Console.WriteLine("  --profile <value>   Built-in/user profile name or a profile JSON path");
         Console.WriteLine("  --no-editorconfig   Ignore .editorconfig for this operation");
+        Console.WriteLine("  --native            Opt in to safe native formatter providers with built-in fallback");
         Console.WriteLine("  --check             Do not write; exit 1 if changes are required");
         Console.WriteLine("  --write             Safely replace changed input files");
         Console.WriteLine("  --backup            Create .codyformat.bak files when writing");
@@ -270,13 +282,29 @@ internal static class Program
         Console.WriteLine("Other:");
         Console.WriteLine("  --stdin             Read source from standard input");
         Console.WriteLine("  --quiet             Suppress status and batch summaries");
+        Console.WriteLine("  --native-status     Show allowlisted native providers and discovery status");
         Console.WriteLine("  --version           Print version");
         Console.WriteLine("  --help, -h          Show this help");
         Console.WriteLine();
         Console.WriteLine(".editorconfig is enabled by default for local files and directories.");
         Console.WriteLine("Explicit --indent overrides the resolved .editorconfig indent_size.");
+        Console.WriteLine("Native providers are never auto-installed and are never run unless --native is supplied.");
         Console.WriteLine("Batch mode is a dry run unless --write is explicitly supplied.");
         Console.WriteLine("Exit codes: 0=success, 1=changes required, 2=usage, 3=I/O, 4=format failure, 5=cancelled");
+    }
+
+
+    private static void PrintNativeStatus()
+    {
+        Console.WriteLine("CodyFormat native formatter providers");
+        Console.WriteLine("Native execution is opt-in only; missing/failed providers fall back to CodyFormat built-ins.");
+        Console.WriteLine();
+        foreach (var status in NativeFormatterService.GetStatuses())
+        {
+            var state = status.Available ? "available" : "missing";
+            var path = status.Available ? $" • {status.ExecutablePath}" : string.Empty;
+            Console.WriteLine($"{status.DisplayName,-14} {state,-9} • {string.Join(", ", status.Languages)}{path}");
+        }
     }
 
     private sealed record BaseFormatting(int IndentSize, string IndentStyle);
@@ -290,6 +318,8 @@ internal static class Program
         public bool IndentWasExplicit { get; private set; }
         public string? ProfileName { get; private set; }
         public bool NoEditorConfig { get; private set; }
+        public bool UseNativeFormatters { get; private set; }
+        public bool ShowNativeStatus { get; private set; }
         public bool Check { get; private set; }
         public bool Write { get; private set; }
         public bool Backup { get; private set; }
@@ -317,6 +347,8 @@ internal static class Program
                     case "--recursive": o.Recursive = true; break;
                     case "--quiet": o.Quiet = true; break;
                     case "--no-editorconfig": o.NoEditorConfig = true; break;
+                    case "--native": o.UseNativeFormatters = true; break;
+                    case "--native-status": o.ShowNativeStatus = true; break;
                     case "--language":
                         if (!TryValue(args, ref i, out var language)) return ParseResult.Fail("--language requires a value.");
                         o.Language = language; break;
@@ -339,7 +371,7 @@ internal static class Program
                 }
             }
 
-            if (o.ShowHelp || o.ShowVersion) return ParseResult.Ok(o);
+            if (o.ShowHelp || o.ShowVersion || o.ShowNativeStatus) return ParseResult.Ok(o);
             if (o.Check && o.Write) return ParseResult.Fail("--check and --write cannot be used together.");
             if (o.Backup && !o.Write) return ParseResult.Fail("--backup requires --write.");
             if (positional.Count > 1) return ParseResult.Fail("Provide only one input file or directory.");
